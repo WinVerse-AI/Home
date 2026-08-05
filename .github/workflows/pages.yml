@@ -33,30 +33,38 @@ jobs:
           grep -q "Evidence boundary" index.html
           grep -q "WinVerse" index.html
 
-      - name: Verify all seven concept boards
+      - name: Inspect repaired SerotoniX source boards
         run: |
-          set -euo pipefail
-          urls=(
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-layered-architecture-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-controller-pcba-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-product-cad-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-product-dimensions-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-system-control-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-system-architecture-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/188646086300cad638d26fbfacde9b1b911b4cc5/assets/serotonix-colour-finish-2026.webp"
+          set -u
+          base="https://raw.githubusercontent.com/WinVerse-AI/Homepage/ab89cfad41b718eede7a884cf238df892759e777/assets"
+          files=(
+            serotonix-layered-architecture-2026.webp
+            serotonix-controller-pcba-2026.webp
+            serotonix-product-cad-2026.webp
+            serotonix-product-dimensions-2026.webp
+            serotonix-system-control-2026.webp
+            serotonix-system-architecture-2026.webp
+            serotonix-colour-finish-2026.webp
           )
-
-          for index in "${!urls[@]}"; do
-            output="/tmp/serotonix-${index}.webp"
-            echo "Checking ${urls[$index]}"
-            curl --fail --show-error --location --retry 3 \
-              --output "$output" "${urls[$index]}"
+          failed=0
+          for index in "${!files[@]}"; do
+            output="/tmp/${files[$index]}"
+            url="${base}/${files[$index]}"
+            echo "Checking ${url}"
+            if ! curl --fail --show-error --location --retry 3 --output "$output" "$url"; then
+              echo "DOWNLOAD FAILED: ${files[$index]}"
+              failed=1
+              continue
+            fi
             bytes="$(wc -c < "$output")"
             kind="$(file -b "$output")"
             echo "Asset ${index}: ${bytes} bytes; ${kind}"
-            test "$bytes" -gt 50000
-            grep -qi "Web/P image" <<< "$kind"
+            if [ "$bytes" -le 50000 ] || ! grep -qi "Web/P image" <<< "$kind"; then
+              echo "INVALID OR TRUNCATED: ${files[$index]}"
+              failed=1
+            fi
           done
+          exit "$failed"
 
   deploy:
     if: github.event_name != 'pull_request'
