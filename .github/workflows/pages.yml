@@ -48,10 +48,14 @@ jobs:
 
           for index in "${!urls[@]}"; do
             output="/tmp/serotonix-${index}.webp"
-            curl --fail --silent --show-error --location --retry 3 \
+            echo "Checking ${urls[$index]}"
+            curl --fail --show-error --location --retry 3 \
               --output "$output" "${urls[$index]}"
-            test "$(wc -c < "$output")" -gt 50000
-            file "$output" | grep -qi "Web/P image"
+            bytes="$(wc -c < "$output")"
+            kind="$(file -b "$output")"
+            echo "Asset ${index}: ${bytes} bytes; ${kind}"
+            test "$bytes" -gt 50000
+            grep -qi "Web/P image" <<< "$kind"
           done
 
   deploy:
