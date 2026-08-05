@@ -1,0 +1,98 @@
+name: Validate and deploy Pages
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate site files
+        run: |
+          set -euo pipefail
+          test -s index.html
+          test -s styles.css
+          test -s script.js
+          test -s assets/winverse-mark.svg
+          grep -q "SerotoniX" index.html
+          grep -q "Evidence boundary" index.html
+          grep -q "WinVerse" index.html
+
+      - name: Verify pinned concept boards
+        run: |
+          set -euo pipefail
+          base="https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets"
+          files=(
+            serotonix-layered-architecture-2026.webp
+            serotonix-controller-pcba-2026.webp
+            serotonix-product-cad-2026.webp
+            serotonix-product-dimensions-2026.webp
+            serotonix-system-control-2026.webp
+            serotonix-system-architecture-2026.webp
+            serotonix-colour-finish-2026.webp
+          )
+
+          for asset in "${files[@]}"; do
+            curl --fail --silent --show-error --location --retry 3 \
+              --output "/tmp/${asset}" "${base}/${asset}"
+            test "$(wc -c < "/tmp/${asset}")" -gt 50000
+            file "/tmp/${asset}" | grep -qi "Web/P image"
+          done
+
+      - name: Verify external page references
+        run: |
+          set -euo pipefail
+          urls=(
+            "https://www.uhn.ca/corporate/News/Pages/healing_power_of_smile.aspx"
+            "https://clinicaltrials.gov/study/NCT06261177"
+            "https://pubmed.ncbi.nlm.nih.gov/40319334/"
+            "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/general-wellness-policy-low-risk-devices"
+          )
+
+          for url in "${urls[@]}"; do
+            curl --fail --silent --show-error --location --retry 3 \
+              --range 0-1023 --output /dev/null "$url"
+          done
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
