@@ -105,14 +105,14 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: validate
     permissions:
-      contents: read
+      contents: write
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -128,3 +128,100 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify live deployment
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          page="${PAGE_URL%/}/"
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error --location --retry 2 \
+              --output /tmp/winverse-live.html "$page"; then
+              if grep -q "Human-centred neurotechnology" /tmp/winverse-live.html \
+                && grep -q "SerotoniX" /tmp/winverse-live.html \
+                && grep -q "Evidence boundary" /tmp/winverse-live.html; then
+                echo "Verified live WinVerse site at $page"
+                exit 0
+              fi
+            fi
+            echo "Live site not ready yet; attempt ${attempt}/12"
+            sleep 10
+          done
+          echo "The deployed page did not pass the live-content check."
+          exit 1
+
+      - name: Publish successful deployment record
+        if: success()
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          status_dir=/tmp/winverse-deployment-status
+          repo="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git clone --depth 1 --branch deployment-status "$repo" "$status_dir" 2>/dev/null; then
+            git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
+          else
+            git clone --depth 1 "$repo" "$status_dir"
+            git -C "$status_dir" checkout --orphan deployment-status
+            git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
+          fi
+          cat > "$status_dir/status.json" <<EOF
+          {
+            "status": "passed",
+            "commit_sha": "${GITHUB_SHA}",
+            "page_url": "${PAGE_URL%/}/",
+            "run_url": "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
+            "verified_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          cat > "$status_dir/README.md" <<EOF
+          # WinVerse™ deployment status
+
+          The production deployment and live-content verification passed.
+
+          - Commit: \`${GITHUB_SHA}\`
+          - Page: ${PAGE_URL%/}/
+          - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - Verified: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+          git -C "$status_dir" config user.name "github-actions[bot]"
+          git -C "$status_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$status_dir" add .
+          git -C "$status_dir" commit -m "Record successful WinVerse deployment ${GITHUB_SHA}"
+          git -C "$status_dir" push origin HEAD:deployment-status
+
+      - name: Publish failed deployment record
+        if: failure()
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -u
+          status_dir=/tmp/winverse-deployment-status-failed
+          repo="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git clone --depth 1 --branch deployment-status "$repo" "$status_dir" 2>/dev/null; then
+            git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
+          else
+            git clone --depth 1 "$repo" "$status_dir" || exit 0
+            git -C "$status_dir" checkout --orphan deployment-status
+            git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
+          fi
+          cat > "$status_dir/status.json" <<EOF
+          {
+            "status": "failed",
+            "commit_sha": "${GITHUB_SHA}",
+            "page_url": "${PAGE_URL:-unknown}",
+            "run_url": "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
+            "verified_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          git -C "$status_dir" config user.name "github-actions[bot]"
+          git -C "$status_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$status_dir" add .
+          git -C "$status_dir" commit -m "Record failed WinVerse deployment ${GITHUB_SHA}" || true
+          git -C "$status_dir" push origin HEAD:deployment-status || true
