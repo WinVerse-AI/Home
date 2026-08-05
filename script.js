@@ -1,4 +1,22 @@
 (() => {
+  const ASSET_FIXES = new Map([
+    [
+      'https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-colour-finish-2026.webp',
+      'https://raw.githubusercontent.com/WinVerse-AI/Homepage/188646086300cad638d26fbfacde9b1b911b4cc5/assets/serotonix-colour-finish-2026.webp',
+    ],
+  ]);
+
+  document.querySelectorAll('img[src], [data-lightbox-src]').forEach((element) => {
+    if (element instanceof HTMLImageElement) {
+      const replacement = ASSET_FIXES.get(element.getAttribute('src') || '');
+      if (replacement) element.src = replacement;
+    }
+
+    const lightboxSource = element.getAttribute('data-lightbox-src');
+    const lightboxReplacement = lightboxSource ? ASSET_FIXES.get(lightboxSource) : null;
+    if (lightboxReplacement) element.setAttribute('data-lightbox-src', lightboxReplacement);
+  });
+
   const header = document.querySelector('[data-header]');
   const menuButton = document.querySelector('[data-menu-button]');
   const nav = document.querySelector('[data-nav]');
