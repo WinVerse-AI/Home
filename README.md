@@ -22,6 +22,6 @@ Open `http://localhost:8000`.
 
 The drawings are development artefacts. They do not establish clinical efficacy, safety certification, regulatory clearance, manufacturing release or commercial availability. Public UHN/KITE material concerns facial-muscle functional electrical stimulation and does not by itself substantiate a vagus-nerve mechanism for the illustrated concept.
 
-## Deployment
+## Validation and deployment
 
-The included GitHub Actions workflow validates the page and its pinned image assets, then deploys the repository to GitHub Pages.
+The GitHub Actions workflow checks the required HTML, CSS, JavaScript and mark files, downloads all seven commit-pinned concept boards, verifies their WebP containers and then packages the static site for GitHub Pages. Main-branch pushes trigger the Pages deployment job; pull requests run the same pre-deployment validation gate.
