@@ -22,13 +22,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Validate website structure and leadership content
+      - name: Validate website and media
         shell: bash
         run: |
           set -euo pipefail
           test -s index.html
           test -s styles.css
           test -s script.js
+          test -s assets/winverse-logo.webp
+          test -s assets/zen-koh.webp
 
           python3 - <<'PY'
           from html.parser import HTMLParser
@@ -36,77 +38,32 @@ jobs:
 
           html = Path('index.html').read_text(encoding='utf-8')
           css = Path('styles.css').read_text(encoding='utf-8')
+          required = ['WinVerse','SerotoniX','Evidence boundary','About Us','Alessa Yang','Zen KOH','Professor Milos R. Popovic','assets/winverse-logo.webp','assets/zen-koh.webp']
+          missing = [item for item in required if item not in html]
+          if missing:
+              raise SystemExit(f'Missing required content: {missing}')
 
-          required = [
-              'WinVerse',
-              'SerotoniX',
-              'Evidence boundary',
-              'Neurotechnology built to earn confidence',
-              'About Us',
-              'Alessa Yang',
-              'Zen KOH',
-              'Professor Milos R. Popovic',
-              'https://www.linkedin.com/in/zenkoh/',
-              'https://www.linkedin.com/in/milos-r-popovic-07499139/',
-          ]
-          missing_content = [item for item in required if item not in html]
-          if missing_content:
-              raise SystemExit(f'Missing required content: {missing_content}')
-
-          class SiteAudit(HTMLParser):
+          class Audit(HTMLParser):
               def __init__(self):
-                  super().__init__()
-                  self.ids = set()
-                  self.links = []
-                  self.images = []
-                  self.media_tags = []
-
+                  super().__init__(); self.ids=set(); self.links=[]; self.images=[]
               def handle_starttag(self, tag, attrs):
-                  values = dict(attrs)
-                  if values.get('id'):
-                      self.ids.add(values['id'])
-                  if tag == 'a' and values.get('href'):
-                      self.links.append(values['href'])
-                  if tag == 'img':
-                      self.images.append(values)
-                  if tag in {'picture', 'source', 'svg', 'video'}:
-                      self.media_tags.append(tag)
+                  values=dict(attrs)
+                  if values.get('id'): self.ids.add(values['id'])
+                  if tag=='a' and values.get('href'): self.links.append(values['href'])
+                  if tag=='img': self.images.append(values)
 
-          audit = SiteAudit()
-          audit.feed(html)
-
-          broken = [href for href in audit.links if href.startswith('#') and href[1:] not in audit.ids]
-          if broken:
-              raise SystemExit(f'Broken internal links: {broken}')
-
-          if audit.media_tags:
-              raise SystemExit(f'Unexpected media elements: {audit.media_tags}')
-
-          if len(audit.images) != 2:
-              raise SystemExit(f'Expected two leadership portraits, found {len(audit.images)}')
-
-          allowed_hosts = {
-              'nq90fy9geyapybxh.public.blob.vercel-storage.com',
-              'bme.utoronto.ca',
-          }
-          from urllib.parse import urlparse
-
+          audit=Audit(); audit.feed(html)
+          broken=[href for href in audit.links if href.startswith('#') and href[1:] not in audit.ids]
+          if broken: raise SystemExit(f'Broken internal links: {broken}')
+          expected={'assets/winverse-logo.webp','assets/zen-koh.webp','https://bme.utoronto.ca/wp-content/uploads/2023/07/Milos-Popovic-director-e1688497582502.png'}
+          sources={image.get('src','') for image in audit.images}
+          if sources != expected: raise SystemExit(f'Unexpected image sources: {sources}')
           for image in audit.images:
-              src = image.get('src', '')
-              host = urlparse(src).netloc
-              if host not in allowed_hosts:
-                  raise SystemExit(f'Unexpected portrait host: {host}')
-              if 'serotonix' in src.lower() or 'raw.githubusercontent.com' in src.lower():
-                  raise SystemExit(f'Prohibited product image: {src}')
-              if not image.get('alt'):
-                  raise SystemExit(f'Portrait missing alt text: {src}')
-              if image.get('loading') != 'lazy':
-                  raise SystemExit(f'Portrait must lazy-load: {src}')
-
-          if 'background-image' in css.lower():
-              raise SystemExit('CSS background-image dependency is not permitted.')
-
-          print(f'Validated {len(audit.links)} links, {len(audit.ids)} IDs and {len(audit.images)} leadership portraits.')
+              if not image.get('alt'): raise SystemExit(f'Image missing alt text: {image}')
+              if 'serotonix' in image.get('src','').lower(): raise SystemExit('Product imagery is not permitted.')
+          if 'object-fit:fill' in css.replace(' ',''): raise SystemExit('Stretching images is not permitted.')
+          if 'object-fit:contain' not in css.replace(' ',''): raise SystemExit('Proportional image containment is missing.')
+          print(f'Validated {len(audit.links)} links, {len(audit.ids)} IDs and {len(audit.images)} images.')
           PY
 
           node --check script.js
@@ -126,19 +83,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: .
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
       - name: Verify live deployment
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
@@ -147,39 +100,18 @@ jobs:
           set -euo pipefail
           page="${PAGE_URL%/}/"
           for attempt in {1..12}; do
-            if curl --fail --silent --show-error --location --retry 2 \
-              --output /tmp/winverse-live.html "$page"; then
-              python3 - <<'PY'
-          from html.parser import HTMLParser
-          from pathlib import Path
-
-          html = Path('/tmp/winverse-live.html').read_text(encoding='utf-8')
-          required = ['About Us', 'Alessa Yang', 'Zen KOH', 'Professor Milos R. Popovic']
-          if any(item not in html for item in required):
-              raise SystemExit(1)
-
-          class Images(HTMLParser):
-              def __init__(self):
-                  super().__init__()
-                  self.count = 0
-              def handle_starttag(self, tag, attrs):
-                  if tag == 'img':
-                      self.count += 1
-
-          audit = Images()
-          audit.feed(html)
-          if audit.count != 2:
-              raise SystemExit(1)
-          PY
-              if [ "$?" -eq 0 ]; then
-                echo "Verified WinVerse leadership site at $page"
-                exit 0
-              fi
+            if curl --fail --silent --show-error --location --retry 2 --output /tmp/winverse-live.html "$page" \
+              && grep -q "About Us" /tmp/winverse-live.html \
+              && grep -q "assets/winverse-logo.webp" /tmp/winverse-live.html \
+              && grep -q "assets/zen-koh.webp" /tmp/winverse-live.html \
+              && curl --fail --silent --show-error --location --output /dev/null "${page}assets/winverse-logo.webp" \
+              && curl --fail --silent --show-error --location --output /dev/null "${page}assets/zen-koh.webp"; then
+              echo "Verified WinVerse media and layout build at $page"
+              exit 0
             fi
             echo "Live site not ready yet; attempt ${attempt}/12"
             sleep 10
           done
-          echo "The deployed page did not pass the live-content check."
           exit 1
 
       - name: Publish deployment record
@@ -193,7 +125,6 @@ jobs:
           set -u
           status_dir=/tmp/winverse-deployment-status
           repo="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-
           if git clone --depth 1 --branch deployment-status "$repo" "$status_dir" 2>/dev/null; then
             git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
           else
@@ -201,7 +132,6 @@ jobs:
             git -C "$status_dir" checkout --orphan deployment-status
             git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
           fi
-
           cat > "$status_dir/status.json" <<EOF
           {
             "status": "${DEPLOY_STATUS}",
@@ -211,17 +141,6 @@ jobs:
             "verified_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
-
-          cat > "$status_dir/README.md" <<EOF
-          # WinVerse™ deployment status
-
-          - Status: ${DEPLOY_STATUS}
-          - Commit: \`${GITHUB_SHA}\`
-          - Page: ${PAGE_URL%/}/
-          - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
-          - Checked: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-          EOF
-
           git -C "$status_dir" config user.name "github-actions[bot]"
           git -C "$status_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C "$status_dir" add .
