@@ -17,12 +17,12 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Validate image-free website
+      - name: Validate website structure and leadership content
         shell: bash
         run: |
           set -euo pipefail
@@ -30,18 +30,36 @@ jobs:
           test -s styles.css
           test -s script.js
 
-          grep -q "WinVerse" index.html
-          grep -q "SerotoniX" index.html
-          grep -q "Evidence boundary" index.html
-          grep -q "Neurotechnology built to earn confidence" index.html
+          required_content=(
+            "WinVerse"
+            "SerotoniX"
+            "Evidence boundary"
+            "Neurotechnology built to earn confidence"
+            "About Us"
+            "Alessa Yang"
+            "Zen KOH"
+            "Professor Milos R. Popovic"
+            "https://www.linkedin.com/in/zenkoh/"
+            "https://www.linkedin.com/in/milos-r-popovic-07499139/"
+          )
 
-          if grep -Eiq '<(img|picture|source|svg|video)([[:space:]>])' index.html; then
-            echo "Image or media elements remain in index.html."
+          for content in "${required_content[@]}"; do
+            grep -Fq "$content" index.html
+          done
+
+          image_count="$(grep -Eio '<img([[:space:]>])' index.html | wc -l | tr -d ' ')"
+          if [ "$image_count" -ne 2 ]; then
+            echo "Expected exactly two leadership portraits; found $image_count."
             exit 1
           fi
 
-          if grep -Eiq '(og:image|raw\.githubusercontent\.com|background-image|url\([^)]*\.(png|jpe?g|webp|gif|svg))' index.html styles.css script.js; then
-            echo "An image dependency remains in the published website files."
+          if grep -Eiq '<(picture|source|svg|video)([[:space:]>])' index.html; then
+            echo "Unexpected media elements remain in index.html."
+            exit 1
+          fi
+
+          if grep -Eiq '(serotonix[^"'"' ]*\.(png|jpe?g|webp|gif|svg)|raw\.githubusercontent\.com|background-image)' index.html styles.css script.js; then
+            echo "A prohibited product-image dependency remains in the published website files."
             exit 1
           fi
 
@@ -54,6 +72,7 @@ jobs:
                   super().__init__()
                   self.ids = set()
                   self.links = []
+                  self.images = []
 
               def handle_starttag(self, tag, attrs):
                   values = dict(attrs)
@@ -61,16 +80,43 @@ jobs:
                       self.ids.add(values['id'])
                   if tag == 'a' and values.get('href'):
                       self.links.append(values['href'])
+                  if tag == 'img':
+                      self.images.append(values)
 
           audit = SiteAudit()
           audit.feed(Path('index.html').read_text(encoding='utf-8'))
+
           missing = [href for href in audit.links if href.startswith('#') and href[1:] not in audit.ids]
           if missing:
               raise SystemExit(f'Broken internal links: {missing}')
-          print(f'Validated {len(audit.links)} links and {len(audit.ids)} section IDs.')
+
+          if len(audit.images) != 2:
+              raise SystemExit(f'Expected two portrait images, found {len(audit.images)}')
+
+          for image in audit.images:
+              if not image.get('alt'):
+                  raise SystemExit(f'Portrait missing alt text: {image}')
+              if image.get('loading') != 'lazy':
+                  raise SystemExit(f'Portrait must lazy-load: {image}')
+
+          print(f'Validated {len(audit.links)} links, {len(audit.ids)} section IDs and {len(audit.images)} portraits.')
           PY
 
           node --check script.js
+
+      - name: Verify external portrait sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          urls=(
+            "https://nq90fy9geyapybxh.public.blob.vercel-storage.com/media/articles/zen-koh-shares-his-journey-with-fourier--hero-1777487899879.webp"
+            "https://bme.utoronto.ca/wp-content/uploads/2023/07/Milos-Popovic-director-e1688497582502.png"
+          )
+
+          for url in "${urls[@]}"; do
+            curl --fail --silent --show-error --location --retry 3 \
+              --range 0-2047 --output /dev/null "$url"
+          done
 
   deploy:
     if: github.event_name != 'pull_request'
@@ -110,12 +156,16 @@ jobs:
           for attempt in {1..12}; do
             if curl --fail --silent --show-error --location --retry 2 \
               --output /tmp/winverse-live.html "$page"; then
+              image_count="$(grep -Eio '<img([[:space:]>])' /tmp/winverse-live.html | wc -l | tr -d ' ')"
               if grep -q "Neurotechnology built to earn confidence" /tmp/winverse-live.html \
                 && grep -q "SerotoniX" /tmp/winverse-live.html \
-                && grep -q "Evidence boundary" /tmp/winverse-live.html \
-                && ! grep -Eiq '<(img|picture|source|svg|video)([[:space:]>])' /tmp/winverse-live.html \
-                && ! grep -Eiq '(og:image|raw\.githubusercontent\.com)' /tmp/winverse-live.html; then
-                echo "Verified image-free WinVerse site at $page"
+                && grep -q "About Us" /tmp/winverse-live.html \
+                && grep -q "Alessa Yang" /tmp/winverse-live.html \
+                && grep -q "Zen KOH" /tmp/winverse-live.html \
+                && grep -q "Professor Milos R. Popovic" /tmp/winverse-live.html \
+                && [ "$image_count" -eq 2 ] \
+                && ! grep -Eiq '(serotonix[^"'"' ]*\.(png|jpe?g|webp|gif|svg)|raw\.githubusercontent\.com)' /tmp/winverse-live.html; then
+                echo "Verified WinVerse leadership site at $page"
                 exit 0
               fi
             fi
