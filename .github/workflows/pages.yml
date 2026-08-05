@@ -33,7 +33,7 @@ jobs:
             assets/zen-koh.webp
             assets/serotonix-colourways.webp
             assets/serotonix-exploded.webp
-            assets/serotonix-dimensions.webp
+            assets/serotonix-detail.webp
             i18n/en.js
             i18n/zh-CN.js
             i18n/ja.js
@@ -56,7 +56,7 @@ jobs:
           required = {
               'assets/serotonix-colourways.webp',
               'assets/serotonix-exploded.webp',
-              'assets/serotonix-dimensions.webp',
+              'assets/serotonix-detail.webp',
           }
           if 'visuals.css' not in html or not all(item in html for item in required):
               raise SystemExit('Approved attached visuals are not fully referenced.')
@@ -137,10 +137,11 @@ jobs:
             if curl --fail --silent --show-error --location --retry 2 --output /tmp/live.html "$page" \
               && grep -q 'assets/serotonix-colourways.webp' /tmp/live.html \
               && grep -q 'assets/serotonix-exploded.webp' /tmp/live.html \
-              && grep -q 'assets/serotonix-dimensions.webp' /tmp/live.html \
+              && grep -q 'assets/serotonix-detail.webp' /tmp/live.html \
+              && ! grep -q 'raw.githubusercontent.com' /tmp/live.html \
               && curl --fail --silent --show-error --location --output /dev/null "${page}assets/serotonix-colourways.webp" \
               && curl --fail --silent --show-error --location --output /dev/null "${page}assets/serotonix-exploded.webp" \
-              && curl --fail --silent --show-error --location --output /dev/null "${page}assets/serotonix-dimensions.webp"; then
+              && curl --fail --silent --show-error --location --output /dev/null "${page}assets/serotonix-detail.webp"; then
               echo "Verified attached-visual build at $page"
               exit 0
             fi
