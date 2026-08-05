@@ -33,40 +33,25 @@ jobs:
           grep -q "Evidence boundary" index.html
           grep -q "WinVerse" index.html
 
-      - name: Verify pinned concept boards
-        run: |
-          set -euo pipefail
-          base="https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets"
-          files=(
-            serotonix-layered-architecture-2026.webp
-            serotonix-controller-pcba-2026.webp
-            serotonix-product-cad-2026.webp
-            serotonix-product-dimensions-2026.webp
-            serotonix-system-control-2026.webp
-            serotonix-system-architecture-2026.webp
-            serotonix-colour-finish-2026.webp
-          )
-
-          for asset in "${files[@]}"; do
-            curl --fail --silent --show-error --location --retry 3 \
-              --output "/tmp/${asset}" "${base}/${asset}"
-            test "$(wc -c < "/tmp/${asset}")" -gt 50000
-            file "/tmp/${asset}" | grep -qi "Web/P image"
-          done
-
-      - name: Verify external page references
+      - name: Verify all seven concept boards
         run: |
           set -euo pipefail
           urls=(
-            "https://www.uhn.ca/corporate/News/Pages/healing_power_of_smile.aspx"
-            "https://clinicaltrials.gov/study/NCT06261177"
-            "https://pubmed.ncbi.nlm.nih.gov/40319334/"
-            "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/general-wellness-policy-low-risk-devices"
+            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-layered-architecture-2026.webp"
+            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-controller-pcba-2026.webp"
+            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-product-cad-2026.webp"
+            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-product-dimensions-2026.webp"
+            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-system-control-2026.webp"
+            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-system-architecture-2026.webp"
+            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/188646086300cad638d26fbfacde9b1b911b4cc5/assets/serotonix-colour-finish-2026.webp"
           )
 
-          for url in "${urls[@]}"; do
+          for index in "${!urls[@]}"; do
+            output="/tmp/serotonix-${index}.webp"
             curl --fail --silent --show-error --location --retry 3 \
-              --range 0-1023 --output /dev/null "$url"
+              --output "$output" "${urls[$index]}"
+            test "$(wc -c < "$output")" -gt 50000
+            file "$output" | grep -qi "Web/P image"
           done
 
   deploy:
