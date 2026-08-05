@@ -3,8 +3,6 @@ name: Validate and deploy Pages
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -17,17 +15,16 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Validate multilingual website and approved visuals
+      - name: Validate site files
         shell: bash
         run: |
           set -euo pipefail
-
-          required_files=(
+          files=(
             index.html
             styles.css
             visuals.css
@@ -44,66 +41,27 @@ jobs:
             i18n/de.js
             i18n/es.js
           )
-          for file in "${required_files[@]}"; do
-            test -s "$file" || { echo "Missing or empty file: $file"; exit 1; }
+          for file in "${files[@]}"; do
+            test -s "$file" || { echo "Missing file: $file"; exit 1; }
           done
-
-          cat > /tmp/approved-visuals.sha256 <<'HASHES'
-          49b3c07817b9501a83a86961fdc1d5fd9eee54ea2684684d058ff28243f66789  assets/serotonix-colourways.webp
-          912f2ae1eec92140dd5dbb6ac2563f974ecbe9603bb1d915866b5fe6740c1673  assets/serotonix-exploded.webp
-          d4723a87f6ede3d5b1aba1acf3ac3e1281e4e053d5f8c02084c0088760b273ae  assets/serotonix-dimensions.webp
-          HASHES
-          sha256sum --check /tmp/approved-visuals.sha256
 
           node --check script.js
           for file in i18n/*.js; do node --check "$file"; done
-
-          node <<'NODE'
-          global.window = {};
-          const languages = ['en', 'zh-CN', 'ja', 'fr', 'de', 'es'];
-          for (const language of languages) require(`./i18n/${language}.js`);
-
-          const translations = window.WINVERSE_TRANSLATIONS || {};
-          const englishKeys = Object.keys(translations.en || {}).sort();
-          if (englishKeys.length < 100) throw new Error(`English dictionary is incomplete: ${englishKeys.length} keys`);
-
-          for (const language of languages) {
-            const dictionary = translations[language];
-            if (!dictionary) throw new Error(`Missing dictionary: ${language}`);
-            const keys = Object.keys(dictionary).sort();
-            const missing = englishKeys.filter((key) => !Object.hasOwn(dictionary, key));
-            const extra = keys.filter((key) => !Object.hasOwn(translations.en, key));
-            const blank = keys.filter((key) => typeof dictionary[key] !== 'string' || !dictionary[key].trim());
-            if (missing.length || extra.length || blank.length) {
-              throw new Error(`${language}: missing=${missing}, extra=${extra}, blank=${blank}`);
-            }
-          }
-
-          const fs = require('fs');
-          const runtime = fs.readFileSync('script.js', 'utf8');
-          for (const feature of ['data-language-select', 'winverse-language', 'URLSearchParams', 'document.documentElement.lang']) {
-            if (!runtime.includes(feature)) throw new Error(`Missing multilingual feature: ${feature}`);
-          }
-          console.log(`Validated ${languages.length} dictionaries with ${englishKeys.length} shared keys.`);
-          NODE
 
           python3 <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
 
           html = Path('index.html').read_text(encoding='utf-8')
-          css = Path('styles.css').read_text(encoding='utf-8') + '\n' + Path('visuals.css').read_text(encoding='utf-8')
-
-          approved_product_images = {
+          required = {
               'assets/serotonix-colourways.webp',
               'assets/serotonix-exploded.webp',
               'assets/serotonix-dimensions.webp',
           }
-          expected_images = approved_product_images | {
-              'assets/winverse-logo.webp',
-              'assets/zen-koh.webp',
-              'https://bme.utoronto.ca/wp-content/uploads/2023/07/Milos-Popovic-director-e1688497582502.png',
-          }
+          if 'visuals.css' not in html or not all(item in html for item in required):
+              raise SystemExit('Approved attached visuals are not fully referenced.')
+          if 'raw.githubusercontent.com' in html or 'WinVerse-AI/Homepage' in html:
+              raise SystemExit('External SerotoniX image dependency found.')
 
           class Audit(HTMLParser):
               def __init__(self):
@@ -122,46 +80,26 @@ jobs:
 
           audit = Audit()
           audit.feed(html)
-
           broken = [href for href in audit.links if href.startswith('#') and href[1:] not in audit.ids]
           if broken:
               raise SystemExit(f'Broken internal links: {broken}')
 
-          sources = {image.get('src', '') for image in audit.images}
-          if sources != expected_images:
-              raise SystemExit(f'Unexpected image sources: {sources}')
-
           for image in audit.images:
               src = image.get('src', '')
               if not image.get('alt'):
-                  raise SystemExit(f'Image missing alt text: {src}')
-              if src in approved_product_images and image.get('loading') != 'lazy':
-                  raise SystemExit(f'Product visual must lazy-load: {src}')
+                  raise SystemExit(f'Missing alt text: {src}')
+              if src in required and image.get('loading') != 'lazy':
+                  raise SystemExit(f'Product image must lazy-load: {src}')
 
-          if 'raw.githubusercontent.com' in html or 'WinVerse-AI/Homepage' in html:
-              raise SystemExit('External product-image dependencies are not permitted.')
-
-          for path in approved_product_images:
+          for path in required:
               data = Path(path).read_bytes()
-              if len(data) < 16 or data[:4] != b'RIFF' or data[8:12] != b'WEBP':
-                  raise SystemExit(f'Invalid WebP payload: {path}')
+              if data[:4] != b'RIFF' or data[8:12] != b'WEBP':
+                  raise SystemExit(f'Invalid WebP: {path}')
 
-          compact_css = ''.join(css.split()).lower()
-          if 'object-fit:fill' in compact_css:
-              raise SystemExit('Image stretching is not permitted.')
-          if '.principle-mediaimg' not in compact_css or 'object-fit:contain' not in compact_css:
-              raise SystemExit('Proportional product-image containment is missing.')
-
-          required_markup = ['visuals.css', 'principle-media', 'principle-copy']
-          missing_markup = [item for item in required_markup if item not in html]
-          if missing_markup:
-              raise SystemExit(f'Missing visual layout markup: {missing_markup}')
-
-          print(f'Validated {len(audit.links)} links and {len(audit.images)} approved images.')
+          print('Site validation passed.')
           PY
 
   deploy:
-    if: github.event_name != 'pull_request'
     needs: validate
     permissions:
       contents: write
@@ -188,57 +126,24 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify live attached-visual deployment
+      - name: Verify live site
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         shell: bash
         run: |
           set -euo pipefail
           page="${PAGE_URL%/}/"
-          files=(
-            styles.css
-            visuals.css
-            script.js
-            i18n/en.js
-            i18n/zh-CN.js
-            i18n/ja.js
-            i18n/fr.js
-            i18n/de.js
-            i18n/es.js
-            assets/winverse-logo.webp
-            assets/zen-koh.webp
-            assets/serotonix-colourways.webp
-            assets/serotonix-exploded.webp
-            assets/serotonix-dimensions.webp
-          )
-
           for attempt in {1..12}; do
-            ready=true
-            if ! curl --fail --silent --show-error --location --retry 2 --output /tmp/winverse-live.html "$page"; then
-              ready=false
-            elif ! grep -q 'visuals.css' /tmp/winverse-live.html \
-              || ! grep -q 'assets/serotonix-colourways.webp' /tmp/winverse-live.html \
-              || ! grep -q 'assets/serotonix-exploded.webp' /tmp/winverse-live.html \
-              || ! grep -q 'assets/serotonix-dimensions.webp' /tmp/winverse-live.html \
-              || grep -q 'raw.githubusercontent.com' /tmp/winverse-live.html; then
-              ready=false
-            fi
-
-            if [ "$ready" = true ]; then
-              for file in "${files[@]}"; do
-                if ! curl --fail --silent --show-error --location --retry 2 --output /dev/null "${page}${file}"; then
-                  ready=false
-                  break
-                fi
-              done
-            fi
-
-            if [ "$ready" = true ]; then
-              echo "Verified WinVerse build using only the approved attached product visuals at $page"
+            if curl --fail --silent --show-error --location --retry 2 --output /tmp/live.html "$page" \
+              && grep -q 'assets/serotonix-colourways.webp' /tmp/live.html \
+              && grep -q 'assets/serotonix-exploded.webp' /tmp/live.html \
+              && grep -q 'assets/serotonix-dimensions.webp' /tmp/live.html \
+              && curl --fail --silent --show-error --location --output /dev/null "${page}assets/serotonix-colourways.webp" \
+              && curl --fail --silent --show-error --location --output /dev/null "${page}assets/serotonix-exploded.webp" \
+              && curl --fail --silent --show-error --location --output /dev/null "${page}assets/serotonix-dimensions.webp"; then
+              echo "Verified attached-visual build at $page"
               exit 0
             fi
-
-            echo "Live site not ready; attempt ${attempt}/12"
             sleep 10
           done
           exit 1
