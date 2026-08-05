@@ -7,6 +7,7 @@
   ul { padding: 0; }
   button, a { font: inherit; }
   button { border: 0; }
+  img { display: block; max-width: 100%; }
 }
 
 @layer base {
@@ -85,7 +86,12 @@
     transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
   }
   .button:hover { transform: translateY(-2px); }
-  .button:focus-visible, .text-link:focus-visible, .site-nav a:focus-visible, .brand:focus-visible, .scroll-cue:focus-visible {
+  .button:focus-visible,
+  .text-link:focus-visible,
+  .site-nav a:focus-visible,
+  .brand:focus-visible,
+  .scroll-cue:focus-visible,
+  .profile-links a:focus-visible {
     outline: 3px solid #89b89b;
     outline-offset: 4px;
   }
@@ -192,7 +198,8 @@
   .section { padding: clamp(92px, 12vw, 160px) 0; }
   .section-rule { border-top: 1px solid var(--line); }
   .section-tint { background: var(--green-pale); }
-  .two-column-heading { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1fr); gap: clamp(60px, 9vw, 150px); align-items: start; }
+  .two-column-heading,
+  .about-intro { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1fr); gap: clamp(60px, 9vw, 150px); align-items: start; }
   .section-heading .eyebrow { margin-bottom: 22px; }
   .section-copy { max-width: 650px; }
   .section-copy > * + * { margin-top: 22px; }
@@ -237,12 +244,38 @@
   .boundary-card li::before { content: "—"; position: absolute; left: 0; color: var(--green); }
   .boundary-card-dark li::before { color: #a9d0b6; }
 
-  .company-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(390px, 1fr); gap: clamp(60px, 9vw, 150px); }
-  .company-content .lead { max-width: 650px; }
-  .company-facts { margin-top: 52px; border-top: 1px solid var(--line); }
-  .company-facts > div { display: grid; grid-template-columns: 42px 1fr; gap: 15px; padding: 18px 0; border-bottom: 1px solid var(--line); }
-  .company-facts span { color: var(--green); font-size: 0.72rem; font-weight: 800; }
-  .company-facts strong { display: block; color: var(--ink); }
+  .about-section { background: var(--white); }
+  .team-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin-top: 84px; border: 1px solid var(--line); background: var(--line); }
+  .team-card { min-width: 0; background: var(--white); }
+  .team-media {
+    position: relative;
+    display: grid;
+    aspect-ratio: 4 / 3;
+    place-items: center;
+    overflow: hidden;
+    background: #dfe7e0;
+  }
+  .team-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 22%; }
+  .team-initials { color: var(--green-dark); font-size: clamp(2rem, 4vw, 4.2rem); font-weight: 650; letter-spacing: -0.06em; }
+  .team-media-placeholder { background: linear-gradient(135deg, #e7eee8 0%, #d4dfd6 100%); }
+  .team-media-placeholder::before,
+  .team-media-placeholder::after {
+    content: "";
+    position: absolute;
+    border: 1px solid rgba(31, 91, 59, 0.14);
+    border-radius: 50%;
+  }
+  .team-media-placeholder::before { width: 72%; aspect-ratio: 1; }
+  .team-media-placeholder::after { width: 46%; aspect-ratio: 1; }
+  .team-media-placeholder .team-initials { position: relative; z-index: 1; }
+  .portrait-status { position: absolute; right: 18px; bottom: 15px; color: var(--green); font-size: 0.65rem; font-weight: 750; letter-spacing: 0.1em; text-transform: uppercase; }
+  .team-content { min-height: 315px; padding: 30px 30px 32px; }
+  .team-role { margin-bottom: 12px; color: var(--green); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+  .team-content h3 { margin-bottom: 16px; }
+  .team-content > p:last-of-type { font-size: 0.94rem; line-height: 1.65; }
+  .profile-links { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .profile-links a { color: var(--green); font-size: 0.78rem; font-weight: 750; }
+  .profile-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
 
   .contact-section { padding: clamp(74px, 9vw, 110px) 0; background: var(--green); color: var(--white); }
   .contact-section .eyebrow { color: #c8e3d0; }
@@ -258,6 +291,11 @@
 }
 
 @layer responsive {
+  @media (max-width: 1040px) {
+    .site-nav { gap: 18px; }
+    .team-content { padding: 26px 24px 28px; }
+  }
+
   @media (max-width: 940px) {
     :root { --header-height: 70px; }
     .shell { width: min(calc(100% - 36px), var(--shell)); }
@@ -289,12 +327,15 @@
     .hero-grid { grid-template-columns: 1fr; gap: 58px; }
     .hero-panel { max-width: 600px; }
     .scroll-cue { display: none; }
-    .two-column-heading, .platform-layout, .company-grid { grid-template-columns: 1fr; gap: 50px; }
+    .two-column-heading, .about-intro, .platform-layout { grid-template-columns: 1fr; gap: 50px; }
     .platform-layout .section-heading { position: static; }
     .principle-grid { grid-template-columns: 1fr; margin-top: 60px; }
     .principle-card { min-height: auto; padding: 28px 0; }
     .principle-card + .principle-card { border-top: 1px solid var(--line); border-left: 0; padding-left: 0; }
     .card-number { margin-bottom: 30px; }
+    .team-grid { grid-template-columns: 1fr 1fr; }
+    .team-card:first-child { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+    .team-card:first-child .team-media { aspect-ratio: auto; min-height: 320px; }
     .contact-inner { align-items: flex-start; flex-direction: column; }
   }
 
@@ -316,6 +357,11 @@
     .pathway-item .status { grid-column: 2; justify-self: start; margin-top: 4px; }
     .boundary-grid { grid-template-columns: 1fr; }
     .boundary-card { padding: 30px 22px; }
+    .team-grid { grid-template-columns: 1fr; margin-top: 54px; }
+    .team-card:first-child { grid-column: auto; display: block; }
+    .team-card:first-child .team-media,
+    .team-media { aspect-ratio: 4 / 3; min-height: 0; }
+    .team-content { min-height: 0; padding: 26px 22px 30px; }
     .contact-actions { width: 100%; min-width: 0; }
     .footer-inner { align-items: flex-start; flex-direction: column; }
     .footer-inner nav { flex-wrap: wrap; }
