@@ -1,53 +1,108 @@
 (() => {
+  const translations = window.WINVERSE_TRANSLATIONS || {};
+  const supportedLanguages = Object.keys(translations);
+  const languageSelect = document.querySelector('[data-language-select]');
   const header = document.querySelector('[data-header]');
   const menuButton = document.querySelector('[data-menu-button]');
   const nav = document.querySelector('[data-nav]');
   const navLinks = [...document.querySelectorAll('.site-nav a[href^="#"]')];
   const sections = [...document.querySelectorAll('main section[id]')];
   const year = document.querySelector('[data-year]');
-  const brand = document.querySelector('.brand');
 
-  if (brand && !brand.querySelector('.brand-tagline')) {
-    brand.classList.add('brand-with-tagline');
+  const normaliseLanguage = (value) => {
+    if (!value) return null;
+    const candidate = String(value).trim().toLowerCase();
+    if (candidate === 'zh' || candidate.startsWith('zh-')) return 'zh-CN';
+    return supportedLanguages.find((language) => language.toLowerCase() === candidate)
+      || supportedLanguages.find((language) => candidate.startsWith(`${language.toLowerCase()}-`))
+      || null;
+  };
 
-    const tagline = document.createElement('span');
-    tagline.className = 'brand-tagline';
-    tagline.textContent = 'Pulse of Innovation';
-    brand.appendChild(tagline);
-
-    if (!document.getElementById('winverse-brand-tagline-style')) {
-      const style = document.createElement('style');
-      style.id = 'winverse-brand-tagline-style';
-      style.textContent = `
-        .brand-with-tagline {
-          flex-direction: column;
-          justify-content: center;
-          gap: 3px;
-        }
-
-        .brand-tagline {
-          display: block;
-          color: var(--green-dark);
-          font-size: clamp(0.46rem, 0.55vw, 0.58rem);
-          font-weight: 700;
-          letter-spacing: 0.2em;
-          line-height: 1;
-          text-align: center;
-          text-transform: uppercase;
-          white-space: nowrap;
-        }
-
-        @media (max-width: 680px) {
-          .brand-with-tagline { gap: 2px; }
-          .brand-tagline {
-            font-size: 0.44rem;
-            letter-spacing: 0.16em;
-          }
-        }
-      `;
-      document.head.appendChild(style);
+  const readStoredLanguage = () => {
+    try {
+      return normaliseLanguage(window.localStorage.getItem('winverse-language'));
+    } catch {
+      return null;
     }
+  };
+
+  const detectBrowserLanguage = () => {
+    const preferences = navigator.languages?.length ? navigator.languages : [navigator.language];
+    for (const preference of preferences) {
+      const match = normaliseLanguage(preference);
+      if (match) return match;
+    }
+    return 'en';
+  };
+
+  const queryLanguage = normaliseLanguage(new URLSearchParams(window.location.search).get('lang'));
+  const initialLanguage = queryLanguage || readStoredLanguage() || detectBrowserLanguage();
+
+  const translate = (language, key) => translations[language]?.[key] ?? translations.en[key] ?? key;
+
+  const updateTranslatedAttributes = (language) => {
+    document.querySelectorAll('[data-i18n-attr]').forEach((element) => {
+      const declarations = element.dataset.i18nAttr.split(';');
+      declarations.forEach((declaration) => {
+        const separator = declaration.indexOf(':');
+        if (separator < 1) return;
+        const attribute = declaration.slice(0, separator).trim();
+        const key = declaration.slice(separator + 1).trim();
+        if (attribute && key) element.setAttribute(attribute, translate(language, key));
+      });
+    });
+  };
+
+  const updateMetadata = (language) => {
+    document.title = translate(language, 'meta.title');
+    const description = translate(language, 'meta.description');
+    const descriptionMeta = document.querySelector('meta[name="description"]');
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    const ogDescription = document.querySelector('meta[property="og:description"]');
+    if (descriptionMeta) descriptionMeta.setAttribute('content', description);
+    if (ogTitle) ogTitle.setAttribute('content', translate(language, 'meta.title'));
+    if (ogDescription) ogDescription.setAttribute('content', description);
+  };
+
+  const persistLanguage = (language) => {
+    try {
+      window.localStorage.setItem('winverse-language', language);
+    } catch {
+      // The language still applies for this visit when storage is unavailable.
+    }
+  };
+
+  const updateLanguageQuery = (language) => {
+    if (!window.history?.replaceState) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('lang', language);
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  };
+
+  const applyLanguage = (language, options = {}) => {
+    const resolvedLanguage = normaliseLanguage(language) || 'en';
+    document.documentElement.lang = resolvedLanguage;
+    document.body.dataset.language = resolvedLanguage;
+
+    document.querySelectorAll('[data-i18n]').forEach((element) => {
+      element.textContent = translate(resolvedLanguage, element.dataset.i18n);
+    });
+
+    updateTranslatedAttributes(resolvedLanguage);
+    updateMetadata(resolvedLanguage);
+
+    if (languageSelect) languageSelect.value = resolvedLanguage;
+    persistLanguage(resolvedLanguage);
+    if (options.updateUrl) updateLanguageQuery(resolvedLanguage);
+  };
+
+  if (languageSelect) {
+    languageSelect.addEventListener('change', (event) => {
+      applyLanguage(event.target.value, { updateUrl: true });
+    });
   }
+
+  applyLanguage(initialLanguage);
 
   if (year) year.textContent = new Date().getFullYear();
 
@@ -70,6 +125,10 @@
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeMenu();
+    });
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 1100) closeMenu();
     });
   }
 
