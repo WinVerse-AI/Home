@@ -1,4 +1,11 @@
 (() => {
+  if (!document.querySelector('link[href="dimension-record.css"]')) {
+    const dimensionStylesheet = document.createElement('link');
+    dimensionStylesheet.rel = 'stylesheet';
+    dimensionStylesheet.href = 'dimension-record.css';
+    document.head.append(dimensionStylesheet);
+  }
+
   const SOURCE_COMMIT = '188646086300cad638d26fbfacde9b1b911b4cc5';
   const SOURCE_BASE = `https://raw.githubusercontent.com/WinVerse-AI/Homepage/${SOURCE_COMMIT}/assets`;
   const assets = {
