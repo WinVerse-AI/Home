@@ -17,56 +17,132 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Validate website and media
+      - name: Validate website, media and languages
         shell: bash
         run: |
           set -euo pipefail
-          test -s index.html
-          test -s styles.css
-          test -s script.js
-          test -s assets/winverse-logo.webp
-          test -s assets/zen-koh.webp
 
-          python3 - <<'PY'
+          required_files=(
+            index.html
+            styles.css
+            script.js
+            assets/winverse-logo.webp
+            assets/zen-koh.webp
+            i18n/en.js
+            i18n/zh-CN.js
+            i18n/ja.js
+            i18n/fr.js
+            i18n/de.js
+            i18n/es.js
+          )
+          for file in "${required_files[@]}"; do
+            test -s "$file" || { echo "Missing or empty file: $file"; exit 1; }
+          done
+
+          node --check script.js
+          for file in i18n/*.js; do node --check "$file"; done
+
+          node <<'NODE'
+          global.window = {};
+          const languages = ['en', 'zh-CN', 'ja', 'fr', 'de', 'es'];
+          for (const language of languages) require(`./i18n/${language}.js`);
+
+          const translations = window.WINVERSE_TRANSLATIONS || {};
+          const englishKeys = Object.keys(translations.en || {}).sort();
+          if (englishKeys.length < 100) throw new Error(`English dictionary is incomplete: ${englishKeys.length} keys`);
+
+          for (const language of languages) {
+            const dictionary = translations[language];
+            if (!dictionary) throw new Error(`Missing dictionary: ${language}`);
+            const keys = Object.keys(dictionary).sort();
+            const missing = englishKeys.filter((key) => !Object.hasOwn(dictionary, key));
+            const extra = keys.filter((key) => !Object.hasOwn(translations.en, key));
+            const blank = keys.filter((key) => typeof dictionary[key] !== 'string' || !dictionary[key].trim());
+            if (missing.length || extra.length || blank.length) {
+              throw new Error(`${language}: missing=${missing}, extra=${extra}, blank=${blank}`);
+            }
+          }
+
+          const fs = require('fs');
+          const runtime = fs.readFileSync('script.js', 'utf8');
+          for (const language of languages) {
+            if (!runtime.includes(`'${language}'`) && !runtime.includes(`"${language}"`)) {
+              throw new Error(`Runtime does not register ${language}`);
+            }
+          }
+          for (const feature of ['data-language-select', 'winverse-language', 'URLSearchParams', 'document.documentElement.lang']) {
+            if (!runtime.includes(feature)) throw new Error(`Missing multilingual feature: ${feature}`);
+          }
+          console.log(`Validated ${languages.length} complete dictionaries with ${englishKeys.length} shared keys.`);
+          NODE
+
+          python3 <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
 
           html = Path('index.html').read_text(encoding='utf-8')
           css = Path('styles.css').read_text(encoding='utf-8')
-          required = ['WinVerse','SerotoniX','Evidence boundary','About Us','Alessa Yang','Zen KOH','Professor Milos R. Popovic','assets/winverse-logo.webp','assets/zen-koh.webp']
+          runtime = Path('script.js').read_text(encoding='utf-8')
+
+          required = [
+              'WinVerse', 'SerotoniX', 'Evidence boundary', 'About Us',
+              'Alessa Yang', 'Zen KOH', 'Professor Milos R. Popovic',
+              'assets/winverse-logo.webp', 'assets/zen-koh.webp',
+          ]
           missing = [item for item in required if item not in html]
           if missing:
               raise SystemExit(f'Missing required content: {missing}')
 
           class Audit(HTMLParser):
               def __init__(self):
-                  super().__init__(); self.ids=set(); self.links=[]; self.images=[]
+                  super().__init__()
+                  self.ids = set()
+                  self.links = []
+                  self.images = []
               def handle_starttag(self, tag, attrs):
-                  values=dict(attrs)
-                  if values.get('id'): self.ids.add(values['id'])
-                  if tag=='a' and values.get('href'): self.links.append(values['href'])
-                  if tag=='img': self.images.append(values)
+                  values = dict(attrs)
+                  if values.get('id'):
+                      self.ids.add(values['id'])
+                  if tag == 'a' and values.get('href'):
+                      self.links.append(values['href'])
+                  if tag == 'img':
+                      self.images.append(values)
 
-          audit=Audit(); audit.feed(html)
-          broken=[href for href in audit.links if href.startswith('#') and href[1:] not in audit.ids]
-          if broken: raise SystemExit(f'Broken internal links: {broken}')
-          expected={'assets/winverse-logo.webp','assets/zen-koh.webp','https://bme.utoronto.ca/wp-content/uploads/2023/07/Milos-Popovic-director-e1688497582502.png'}
-          sources={image.get('src','') for image in audit.images}
-          if sources != expected: raise SystemExit(f'Unexpected image sources: {sources}')
+          audit = Audit()
+          audit.feed(html)
+          broken = [href for href in audit.links if href.startswith('#') and href[1:] not in audit.ids]
+          if broken:
+              raise SystemExit(f'Broken internal links: {broken}')
+
+          expected_images = {
+              'assets/winverse-logo.webp',
+              'assets/zen-koh.webp',
+              'https://bme.utoronto.ca/wp-content/uploads/2023/07/Milos-Popovic-director-e1688497582502.png',
+          }
+          sources = {image.get('src', '') for image in audit.images}
+          if sources != expected_images:
+              raise SystemExit(f'Unexpected image sources: {sources}')
           for image in audit.images:
-              if not image.get('alt'): raise SystemExit(f'Image missing alt text: {image}')
-              if 'serotonix' in image.get('src','').lower(): raise SystemExit('Product imagery is not permitted.')
-          if 'object-fit:fill' in css.replace(' ',''): raise SystemExit('Stretching images is not permitted.')
-          if 'object-fit:contain' not in css.replace(' ',''): raise SystemExit('Proportional image containment is missing.')
+              if not image.get('alt'):
+                  raise SystemExit(f'Image missing alt text: {image}')
+              if 'serotonix' in image.get('src', '').lower():
+                  raise SystemExit('Product imagery is not permitted.')
+
+          compact_css = css.replace(' ', '')
+          if 'object-fit:fill' in compact_css:
+              raise SystemExit('Stretching images is not permitted.')
+          if 'object-fit:contain' not in compact_css:
+              raise SystemExit('Proportional image containment is missing.')
+          if 'Promise.allSettled' not in runtime:
+              raise SystemExit('Language dictionaries are not loaded defensively.')
+
           print(f'Validated {len(audit.links)} links, {len(audit.ids)} IDs and {len(audit.images)} images.')
           PY
-
-          node --check script.js
 
   deploy:
     if: github.event_name != 'pull_request'
@@ -83,33 +159,61 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: .
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-      - name: Verify live deployment
+
+      - name: Verify live multilingual deployment
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         shell: bash
         run: |
           set -euo pipefail
           page="${PAGE_URL%/}/"
+          files=(
+            script.js
+            i18n/en.js
+            i18n/zh-CN.js
+            i18n/ja.js
+            i18n/fr.js
+            i18n/de.js
+            i18n/es.js
+            assets/winverse-logo.webp
+            assets/zen-koh.webp
+          )
+
           for attempt in {1..12}; do
-            if curl --fail --silent --show-error --location --retry 2 --output /tmp/winverse-live.html "$page" \
-              && grep -q "About Us" /tmp/winverse-live.html \
-              && grep -q "assets/winverse-logo.webp" /tmp/winverse-live.html \
-              && grep -q "assets/zen-koh.webp" /tmp/winverse-live.html \
-              && curl --fail --silent --show-error --location --output /dev/null "${page}assets/winverse-logo.webp" \
-              && curl --fail --silent --show-error --location --output /dev/null "${page}assets/zen-koh.webp"; then
-              echo "Verified WinVerse media and layout build at $page"
+            ready=true
+            if ! curl --fail --silent --show-error --location --retry 2 --output /tmp/winverse-live.html "$page"; then
+              ready=false
+            elif ! grep -q "About Us" /tmp/winverse-live.html || ! grep -q "script.js" /tmp/winverse-live.html; then
+              ready=false
+            fi
+
+            if [ "$ready" = true ]; then
+              for file in "${files[@]}"; do
+                if ! curl --fail --silent --show-error --location --retry 2 --output /dev/null "${page}${file}"; then
+                  ready=false
+                  break
+                fi
+              done
+            fi
+
+            if [ "$ready" = true ]; then
+              echo "Verified six-language WinVerse build at $page"
               exit 0
             fi
-            echo "Live site not ready yet; attempt ${attempt}/12"
+
+            echo "Live multilingual site not ready; attempt ${attempt}/12"
             sleep 10
           done
           exit 1
@@ -125,6 +229,7 @@ jobs:
           set -u
           status_dir=/tmp/winverse-deployment-status
           repo="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
           if git clone --depth 1 --branch deployment-status "$repo" "$status_dir" 2>/dev/null; then
             git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
           else
@@ -132,6 +237,7 @@ jobs:
             git -C "$status_dir" checkout --orphan deployment-status
             git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
           fi
+
           cat > "$status_dir/status.json" <<EOF
           {
             "status": "${DEPLOY_STATUS}",
@@ -141,6 +247,7 @@ jobs:
             "verified_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
+
           git -C "$status_dir" config user.name "github-actions[bot]"
           git -C "$status_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C "$status_dir" add .
