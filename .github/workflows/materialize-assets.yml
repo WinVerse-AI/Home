@@ -1,0 +1,114 @@
+name: Materialize SerotoniX assets
+
+on:
+  push:
+    branches: ["asset-import"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: materialize-serotonix-assets
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout asset-import
+        uses: actions/checkout@v6
+        with:
+          ref: asset-import
+          fetch-depth: 0
+
+      - name: Detect complete archive
+        id: archive
+        shell: bash
+        run: |
+          if [ -f asset_chunks/READY ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Archive is not complete yet; nothing to materialize."
+          fi
+
+      - name: Reassemble and verify archive
+        if: steps.archive.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat asset_chunks/*.part | base64 --decode > /tmp/winverse-assets.zip
+          echo "0457f410a530bae5ccd7af8eb61e8071606f96486ae9ce31c765916131c7e7e0  /tmp/winverse-assets.zip" | sha256sum --check --strict
+          unzip -o /tmp/winverse-assets.zip -d .
+
+      - name: Install image decoder
+        if: steps.archive.outputs.ready == 'true'
+        run: python3 -m pip install --disable-pip-version-check pillow==12.3.0
+
+      - name: Validate full-resolution boards
+        if: steps.archive.outputs.ready == 'true'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          expected = {
+              "serotonix-colour-finish.webp": (1055, 1491),
+              "serotonix-layered-architecture.webp": (1536, 1024),
+              "serotonix-pcba.webp": (1536, 1024),
+              "serotonix-cad.webp": (1448, 1086),
+              "serotonix-dimensions.webp": (1448, 1086),
+              "serotonix-control-schematic.webp": (1448, 1086),
+              "serotonix-system-schematic.webp": (1448, 1086),
+          }
+          for name, size in expected.items():
+              path = Path("assets") / name
+              if path.stat().st_size < 90_000:
+                  raise SystemExit(f"Asset is unexpectedly small: {path} ({path.stat().st_size} bytes)")
+              with Image.open(path) as image:
+                  image.load()
+                  if image.format != "WEBP" or image.size != size:
+                      raise SystemExit(f"Invalid asset {path}: {image.format} {image.size}, expected WEBP {size}")
+              print(f"Verified {path}: {size}, {path.stat().st_size} bytes")
+          PY
+
+      - name: Point the website to repository assets
+        if: steps.archive.outputs.ready == 'true'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("index.html")
+          text = path.read_text(encoding="utf-8")
+          replacements = {
+              "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-layered-architecture-2026.webp": "assets/serotonix-layered-architecture.webp",
+              "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-controller-pcba-2026.webp": "assets/serotonix-pcba.webp",
+              "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-product-cad-2026.webp": "assets/serotonix-cad.webp",
+              "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-product-dimensions-2026.webp": "assets/serotonix-dimensions.webp",
+              "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-system-control-2026.webp": "assets/serotonix-control-schematic.webp",
+              "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-system-architecture-2026.webp": "assets/serotonix-system-schematic.webp",
+              "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-colour-finish-2026.webp": "assets/serotonix-colour-finish.webp",
+              "https://raw.githubusercontent.com/WinVerse-AI/Homepage/188646086300cad638d26fbfacde9b1b911b4cc5/assets/serotonix-colour-finish-2026.webp": "assets/serotonix-colour-finish.webp",
+          }
+          for source, target in replacements.items():
+              text = text.replace(source, target)
+          if "raw.githubusercontent.com/WinVerse-AI/Homepage" in text:
+              raise SystemExit("Unresolved remote SerotoniX asset reference remains in index.html")
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Commit materialized assets
+        if: steps.archive.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf asset_chunks
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html assets asset_chunks
+          git commit -m "Materialize verified SerotoniX boards"
+          git push origin HEAD:asset-import
