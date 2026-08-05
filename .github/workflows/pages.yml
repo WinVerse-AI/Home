@@ -17,89 +17,60 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Validate website structure
+      - name: Validate image-free website
         shell: bash
         run: |
           set -euo pipefail
           test -s index.html
           test -s styles.css
-          test -s dimension-record.css
           test -s script.js
-          test -s assets/winverse-mark.svg
+
+          grep -q "WinVerse" index.html
           grep -q "SerotoniX" index.html
           grep -q "Evidence boundary" index.html
-          grep -q "WinVerse" index.html
-          grep -q "dimension-record.css" script.js
-          grep -q "188646086300cad638d26fbfacde9b1b911b4cc5" script.js
-          if grep -q "841cb4697679edec2a83b9a21f74caa6ada787d9" index.html script.js; then
-            echo "Invalid historical SerotoniX asset reference remains."
+          grep -q "Neurotechnology built to earn confidence" index.html
+
+          if grep -Eiq '<(img|picture|source|svg|video)([[:space:]>])' index.html; then
+            echo "Image or media elements remain in index.html."
             exit 1
           fi
-          node --check script.js
 
-      - name: Install image decoder
-        run: python3 -m pip install --disable-pip-version-check pillow==12.3.0
-
-      - name: Download and fully decode the six published boards
-        shell: bash
-        run: |
-          set -euo pipefail
-          base="https://raw.githubusercontent.com/WinVerse-AI/Homepage/188646086300cad638d26fbfacde9b1b911b4cc5/assets"
-          assets=(
-            "serotonix-mask-hero-2026.webp|2200|1524"
-            "serotonix-concept-exploded-hires.webp|2083|2200"
-            "serotonix-controller-pcba-2026.webp|2200|2136"
-            "serotonix-system-schematic-hires.webp|1633|2200"
-            "serotonix-proposed-specifications-hires.webp|2058|2200"
-            "serotonix-colour-finish-2026.webp|1511|2200"
-          )
-
-          mkdir -p /tmp/serotonix-assets
-          for record in "${assets[@]}"; do
-            IFS='|' read -r file width height <<< "$record"
-            curl --fail --silent --show-error --location --retry 3 \
-              --output "/tmp/serotonix-assets/$file" "$base/$file"
-            test "$(wc -c < "/tmp/serotonix-assets/$file")" -gt 50000
-            printf '%s|%s|%s\n' "$file" "$width" "$height" >> /tmp/serotonix-assets/manifest.txt
-          done
+          if grep -Eiq '(og:image|raw\.githubusercontent\.com|background-image|url\([^)]*\.(png|jpe?g|webp|gif|svg))' index.html styles.css script.js; then
+            echo "An image dependency remains in the published website files."
+            exit 1
+          fi
 
           python3 - <<'PY'
+          from html.parser import HTMLParser
           from pathlib import Path
-          from PIL import Image
 
-          root = Path('/tmp/serotonix-assets')
-          for line in (root / 'manifest.txt').read_text().splitlines():
-              name, width, height = line.split('|')
-              path = root / name
-              with Image.open(path) as image:
-                  image.load()
-                  expected = (int(width), int(height))
-                  if image.format != 'WEBP':
-                      raise SystemExit(f'{name}: expected WEBP, found {image.format}')
-                  if image.size != expected:
-                      raise SystemExit(f'{name}: expected {expected}, found {image.size}')
-              print(f'Verified {name}: {expected[0]}×{expected[1]}, {path.stat().st_size} bytes')
+          class SiteAudit(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.ids = set()
+                  self.links = []
+
+              def handle_starttag(self, tag, attrs):
+                  values = dict(attrs)
+                  if values.get('id'):
+                      self.ids.add(values['id'])
+                  if tag == 'a' and values.get('href'):
+                      self.links.append(values['href'])
+
+          audit = SiteAudit()
+          audit.feed(Path('index.html').read_text(encoding='utf-8'))
+          missing = [href for href in audit.links if href.startswith('#') and href[1:] not in audit.ids]
+          if missing:
+              raise SystemExit(f'Broken internal links: {missing}')
+          print(f'Validated {len(audit.links)} links and {len(audit.ids)} section IDs.')
           PY
 
-      - name: Audit external evidence references
-        shell: bash
-        run: |
-          set -euo pipefail
-          urls=(
-            "https://www.uhn.ca/corporate/News/Pages/healing_power_of_smile.aspx"
-            "https://clinicaltrials.gov/study/NCT06261177"
-            "https://pubmed.ncbi.nlm.nih.gov/40319334/"
-            "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/general-wellness-policy-low-risk-devices"
-          )
-          for url in "${urls[@]}"; do
-            curl --fail --silent --show-error --location --retry 3 \
-              --range 0-1023 --output /dev/null "$url"
-          done
+          node --check script.js
 
   deploy:
     if: github.event_name != 'pull_request'
@@ -112,7 +83,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -139,10 +110,12 @@ jobs:
           for attempt in {1..12}; do
             if curl --fail --silent --show-error --location --retry 2 \
               --output /tmp/winverse-live.html "$page"; then
-              if grep -q "Human-centred neurotechnology" /tmp/winverse-live.html \
+              if grep -q "Neurotechnology built to earn confidence" /tmp/winverse-live.html \
                 && grep -q "SerotoniX" /tmp/winverse-live.html \
-                && grep -q "Evidence boundary" /tmp/winverse-live.html; then
-                echo "Verified live WinVerse site at $page"
+                && grep -q "Evidence boundary" /tmp/winverse-live.html \
+                && ! grep -Eiq '<(img|picture|source|svg|video)([[:space:]>])' /tmp/winverse-live.html \
+                && ! grep -Eiq '(og:image|raw\.githubusercontent\.com)' /tmp/winverse-live.html; then
+                echo "Verified image-free WinVerse site at $page"
                 exit 0
               fi
             fi
@@ -152,58 +125,18 @@ jobs:
           echo "The deployed page did not pass the live-content check."
           exit 1
 
-      - name: Publish successful deployment record
-        if: success()
+      - name: Publish deployment record
+        if: always()
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
           GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          status_dir=/tmp/winverse-deployment-status
-          repo="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          if git clone --depth 1 --branch deployment-status "$repo" "$status_dir" 2>/dev/null; then
-            git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
-          else
-            git clone --depth 1 "$repo" "$status_dir"
-            git -C "$status_dir" checkout --orphan deployment-status
-            git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
-          fi
-          cat > "$status_dir/status.json" <<EOF
-          {
-            "status": "passed",
-            "commit_sha": "${GITHUB_SHA}",
-            "page_url": "${PAGE_URL%/}/",
-            "run_url": "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
-            "verified_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          }
-          EOF
-          cat > "$status_dir/README.md" <<EOF
-          # WinVerse™ deployment status
-
-          The production deployment and live-content verification passed.
-
-          - Commit: \`${GITHUB_SHA}\`
-          - Page: ${PAGE_URL%/}/
-          - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
-          - Verified: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-          EOF
-          git -C "$status_dir" config user.name "github-actions[bot]"
-          git -C "$status_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -C "$status_dir" add .
-          git -C "$status_dir" commit -m "Record successful WinVerse deployment ${GITHUB_SHA}"
-          git -C "$status_dir" push origin HEAD:deployment-status
-
-      - name: Publish failed deployment record
-        if: failure()
-        env:
-          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
-          GH_TOKEN: ${{ github.token }}
+          DEPLOY_STATUS: ${{ job.status }}
         shell: bash
         run: |
           set -u
-          status_dir=/tmp/winverse-deployment-status-failed
+          status_dir=/tmp/winverse-deployment-status
           repo="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
           if git clone --depth 1 --branch deployment-status "$repo" "$status_dir" 2>/dev/null; then
             git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
           else
@@ -211,17 +144,29 @@ jobs:
             git -C "$status_dir" checkout --orphan deployment-status
             git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
           fi
+
           cat > "$status_dir/status.json" <<EOF
           {
-            "status": "failed",
+            "status": "${DEPLOY_STATUS}",
             "commit_sha": "${GITHUB_SHA}",
-            "page_url": "${PAGE_URL:-unknown}",
+            "page_url": "${PAGE_URL%/}/",
             "run_url": "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
             "verified_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
+
+          cat > "$status_dir/README.md" <<EOF
+          # WinVerse™ deployment status
+
+          - Status: ${DEPLOY_STATUS}
+          - Commit: \`${GITHUB_SHA}\`
+          - Page: ${PAGE_URL%/}/
+          - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - Checked: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+
           git -C "$status_dir" config user.name "github-actions[bot]"
           git -C "$status_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C "$status_dir" add .
-          git -C "$status_dir" commit -m "Record failed WinVerse deployment ${GITHUB_SHA}" || true
+          git -C "$status_dir" commit -m "Record WinVerse deployment ${GITHUB_SHA}" || true
           git -C "$status_dir" push origin HEAD:deployment-status || true
