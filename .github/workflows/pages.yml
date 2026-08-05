@@ -17,41 +17,88 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Validate site files
+      - name: Validate website structure
+        shell: bash
         run: |
           set -euo pipefail
           test -s index.html
           test -s styles.css
+          test -s dimension-record.css
           test -s script.js
           test -s assets/winverse-mark.svg
           grep -q "SerotoniX" index.html
           grep -q "Evidence boundary" index.html
           grep -q "WinVerse" index.html
+          grep -q "dimension-record.css" script.js
+          grep -q "188646086300cad638d26fbfacde9b1b911b4cc5" script.js
+          if grep -q "841cb4697679edec2a83b9a21f74caa6ada787d9" index.html script.js; then
+            echo "Invalid historical SerotoniX asset reference remains."
+            exit 1
+          fi
+          node --check script.js
 
-      - name: Verify all seven concept boards
+      - name: Install image decoder
+        run: python3 -m pip install --disable-pip-version-check pillow==12.3.0
+
+      - name: Download and fully decode the six published boards
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://raw.githubusercontent.com/WinVerse-AI/Homepage/188646086300cad638d26fbfacde9b1b911b4cc5/assets"
+          assets=(
+            "serotonix-mask-hero-2026.webp|2200|1524"
+            "serotonix-concept-exploded-hires.webp|2083|2200"
+            "serotonix-controller-pcba-2026.webp|2200|2136"
+            "serotonix-system-schematic-hires.webp|1633|2200"
+            "serotonix-proposed-specifications-hires.webp|2058|2200"
+            "serotonix-colour-finish-2026.webp|1511|2200"
+          )
+
+          mkdir -p /tmp/serotonix-assets
+          for record in "${assets[@]}"; do
+            IFS='|' read -r file width height <<< "$record"
+            curl --fail --silent --show-error --location --retry 3 \
+              --output "/tmp/serotonix-assets/$file" "$base/$file"
+            test "$(wc -c < "/tmp/serotonix-assets/$file")" -gt 50000
+            printf '%s|%s|%s\n' "$file" "$width" "$height" >> /tmp/serotonix-assets/manifest.txt
+          done
+
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          root = Path('/tmp/serotonix-assets')
+          for line in (root / 'manifest.txt').read_text().splitlines():
+              name, width, height = line.split('|')
+              path = root / name
+              with Image.open(path) as image:
+                  image.load()
+                  expected = (int(width), int(height))
+                  if image.format != 'WEBP':
+                      raise SystemExit(f'{name}: expected WEBP, found {image.format}')
+                  if image.size != expected:
+                      raise SystemExit(f'{name}: expected {expected}, found {image.size}')
+              print(f'Verified {name}: {expected[0]}×{expected[1]}, {path.stat().st_size} bytes')
+          PY
+
+      - name: Audit external evidence references
+        shell: bash
         run: |
           set -euo pipefail
           urls=(
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-layered-architecture-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-controller-pcba-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-product-cad-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-product-dimensions-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-system-control-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/841cb4697679edec2a83b9a21f74caa6ada787d9/assets/serotonix-system-architecture-2026.webp"
-            "https://raw.githubusercontent.com/WinVerse-AI/Homepage/188646086300cad638d26fbfacde9b1b911b4cc5/assets/serotonix-colour-finish-2026.webp"
+            "https://www.uhn.ca/corporate/News/Pages/healing_power_of_smile.aspx"
+            "https://clinicaltrials.gov/study/NCT06261177"
+            "https://pubmed.ncbi.nlm.nih.gov/40319334/"
+            "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/general-wellness-policy-low-risk-devices"
           )
-
-          for index in "${!urls[@]}"; do
-            output="/tmp/serotonix-${index}.webp"
+          for url in "${urls[@]}"; do
             curl --fail --silent --show-error --location --retry 3 \
-              --output "$output" "${urls[$index]}"
-            test "$(wc -c < "$output")" -gt 50000
-            file "$output" | grep -qi "Web/P image"
+              --range 0-1023 --output /dev/null "$url"
           done
 
   deploy:
