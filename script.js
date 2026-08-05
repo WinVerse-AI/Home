@@ -5,6 +5,49 @@
   const navLinks = [...document.querySelectorAll('.site-nav a[href^="#"]')];
   const sections = [...document.querySelectorAll('main section[id]')];
   const year = document.querySelector('[data-year]');
+  const brand = document.querySelector('.brand');
+
+  if (brand && !brand.querySelector('.brand-tagline')) {
+    brand.classList.add('brand-with-tagline');
+
+    const tagline = document.createElement('span');
+    tagline.className = 'brand-tagline';
+    tagline.textContent = 'Pulse of Innovation';
+    brand.appendChild(tagline);
+
+    if (!document.getElementById('winverse-brand-tagline-style')) {
+      const style = document.createElement('style');
+      style.id = 'winverse-brand-tagline-style';
+      style.textContent = `
+        .brand-with-tagline {
+          flex-direction: column;
+          justify-content: center;
+          gap: 3px;
+        }
+
+        .brand-tagline {
+          display: block;
+          color: var(--green-dark);
+          font-size: clamp(0.46rem, 0.55vw, 0.58rem);
+          font-weight: 700;
+          letter-spacing: 0.2em;
+          line-height: 1;
+          text-align: center;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+
+        @media (max-width: 680px) {
+          .brand-with-tagline { gap: 2px; }
+          .brand-tagline {
+            font-size: 0.44rem;
+            letter-spacing: 0.16em;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
 
   if (year) year.textContent = new Date().getFullYear();
 
