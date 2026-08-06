@@ -6,6 +6,7 @@ import shutil
 
 ROOT = Path(__file__).resolve().parent
 DIST = ROOT / "dist"
+LANGUAGE_ASSET_VERSION = "local-translation-v1"
 EXCLUDED = {
     ".git",
     ".github",
@@ -64,15 +65,21 @@ def inject_market_navigation(path: Path) -> None:
     path.write_text(html, encoding="utf-8")
 
 
+def versioned_asset(asset: str) -> str:
+    if asset in {"language.css", "language.js"}:
+        return f"{asset}?v={LANGUAGE_ASSET_VERSION}"
+    return asset
+
+
 def inject_stylesheet(path: Path, stylesheet: str) -> None:
     html = path.read_text(encoding="utf-8")
-    if f'href="{stylesheet}"' not in html:
+    if f'href="{stylesheet}"' not in html and f'href="{stylesheet}?' not in html:
         marker = "</head>"
         if marker not in html:
             raise RuntimeError(f"Could not locate head closing tag in {path.name}")
         html = html.replace(
             marker,
-            f'  <link rel="stylesheet" href="{stylesheet}">\n</head>',
+            f'  <link rel="stylesheet" href="{versioned_asset(stylesheet)}">\n</head>',
             1,
         )
     path.write_text(html, encoding="utf-8")
@@ -80,13 +87,13 @@ def inject_stylesheet(path: Path, stylesheet: str) -> None:
 
 def inject_script(path: Path, script: str) -> None:
     html = path.read_text(encoding="utf-8")
-    if f'src="{script}"' not in html:
+    if f'src="{script}"' not in html and f'src="{script}?' not in html:
         marker = "</head>"
         if marker not in html:
             raise RuntimeError(f"Could not locate head closing tag in {path.name}")
         html = html.replace(
             marker,
-            f'  <script defer src="{script}"></script>\n</head>',
+            f'  <script defer src="{versioned_asset(script)}"></script>\n</head>',
             1,
         )
     path.write_text(html, encoding="utf-8")
