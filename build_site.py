@@ -22,11 +22,9 @@ GLOBAL_STYLESHEETS = (
     "pillar-image-affective.css",
     "pillar-image-research.css",
     "language.css",
-    "translate-cleanup.css",
 )
 GLOBAL_SCRIPTS = (
     "language.js",
-    "translate-cleanup.js",
 )
 
 
@@ -130,7 +128,7 @@ def main() -> None:
         inject_alessa_portrait(page)
     print(
         f"Built {len(pages)} pages in {DIST} with polished layouts, "
-        "high-resolution pillar imagery and six language options"
+        "high-resolution pillar imagery and six local language options"
     )
 
 
