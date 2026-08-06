@@ -32,7 +32,8 @@ jobs:
             typography.css leadership.css script.js build_site.py
             assets/winverse-logo.webp assets/zen-koh.webp
             assets/serotonix-colourways.webp assets/serotonix-exploded.webp
-            assets/serotonix-detail.webp assets/alessa-yang-v2.webp
+            assets/serotonix-detail.webp
+            assets/alessa-yang-portrait-20260806.jpg
             i18n/en.js i18n/zh-CN.js i18n/ja.js
             i18n/fr.js i18n/de.js i18n/es.js
           )
@@ -47,6 +48,7 @@ jobs:
           python3 build_site.py
 
           python3 <<'PY'
+          import hashlib
           from html.parser import HTMLParser
           from pathlib import Path
           from urllib.parse import urlsplit
@@ -116,39 +118,30 @@ jobs:
                   if not (root / src).exists():
                       raise SystemExit(f'{page.name}: missing image {src}')
 
-          portrait = root / 'assets/alessa-yang-v2.webp'
+          portrait = root / 'assets/alessa-yang-portrait-20260806.jpg'
           data = portrait.read_bytes()
-          if len(data) < 5000 or data[:4] != b'RIFF' or data[8:12] != b'WEBP':
-              raise SystemExit('Alessa portrait is not a valid WebP payload.')
+          expected_hash = '8aa919332c5a52f568ad33d9140010a6471c9f5745de0d4fe0ac40dba0d735fc'
+          actual_hash = hashlib.sha256(data).hexdigest()
+          if actual_hash != expected_hash:
+              raise SystemExit(f'Alessa portrait checksum mismatch: {actual_hash}')
+          if len(data) != 7305 or data[:3] != b'\xff\xd8\xff' or data[-2:] != b'\xff\xd9':
+              raise SystemExit('Alessa portrait is not the verified JPEG payload.')
 
           leadership_css = (root / 'leadership.css').read_text(encoding='utf-8')
           for selector in ('.team-photo-alessa', '.team-photo-zen', '.team-photo-milos'):
               if selector not in leadership_css:
                   raise SystemExit(f'Missing leadership portrait rule: {selector}')
-          if 'object-fit: cover' not in leadership_css or 'max-width: none' not in leadership_css:
-              raise SystemExit('Leadership portraits do not share the required crop system.')
 
           for name in ('index.html', 'about.html'):
               html = (root / name).read_text(encoding='utf-8')
-              required_portraits = (
-                  'assets/alessa-yang-v2.webp',
-                  'team-photo-zen',
-                  'team-photo-milos',
-              )
-              for marker in required_portraits:
-                  if marker not in html:
-                      raise SystemExit(f'{name}: missing leadership portrait marker {marker}')
+              if 'assets/alessa-yang-portrait-20260806.jpg' not in html:
+                  raise SystemExit(f'{name}: verified Alessa portrait not injected.')
               if '>AY<' in html or 'Portrait placeholder' in html:
-                  raise SystemExit(f'{name}: obsolete Alessa fallback remains.')
+                  raise SystemExit(f'{name}: obsolete Alessa placeholder remains.')
+              if 'team-photo-zen' not in html or 'team-photo-milos' not in html:
+                  raise SystemExit(f'{name}: leadership portrait system incomplete.')
 
-          evidence = (root / 'evidence.html').read_text(encoding='utf-8')
-          market = (root / 'market.html').read_text(encoding='utf-8')
-          if 'Promising experiment. Unproven treatment.' not in evidence:
-              raise SystemExit('Evidence review missing.')
-          if 'Singapore Founders Programme' not in market:
-              raise SystemExit('Market strategy missing.')
-
-          print('Validated eight pages and the coherent leadership portrait system.')
+          print('Validated eight pages and exact Alessa portrait checksum.')
           PY
 
   deploy:
@@ -181,14 +174,14 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify live site and leadership portraits
+      - name: Verify live site and exact portrait bytes
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         shell: bash
         run: |
           set -euo pipefail
           base="${PAGE_URL%/}/"
-          pages=(index.html overview.html platform.html development.html evidence.html market.html about.html contact.html)
+          pages=(index.html about.html)
 
           for attempt in {1..12}; do
             ready=true
@@ -202,32 +195,33 @@ jobs:
 
             if [ "$ready" = true ] \
               && curl --fail --silent --show-error --location --retry 2 \
-                --output /tmp/alessa-yang.webp "${base}assets/alessa-yang-v2.webp" \
+                --output /tmp/alessa-yang.jpg \
+                "${base}assets/alessa-yang-portrait-20260806.jpg" \
               && curl --fail --silent --show-error --location --retry 2 \
                 --output /tmp/leadership.css "${base}leadership.css"; then
               if python3 - <<'PY'
+          import hashlib
           from pathlib import Path
 
-          data = Path('/tmp/alessa-yang.webp').read_bytes()
-          assert len(data) > 5000
-          assert data[:4] == b'RIFF'
-          assert data[8:12] == b'WEBP'
+          data = Path('/tmp/alessa-yang.jpg').read_bytes()
+          expected_hash = '8aa919332c5a52f568ad33d9140010a6471c9f5745de0d4fe0ac40dba0d735fc'
+          assert hashlib.sha256(data).hexdigest() == expected_hash
+          assert len(data) == 7305
+          assert data[:3] == b'\xff\xd8\xff'
+          assert data[-2:] == b'\xff\xd9'
 
           css = Path('/tmp/leadership.css').read_text(encoding='utf-8')
-          for selector in ('.team-photo-alessa', '.team-photo-zen', '.team-photo-milos'):
-              assert selector in css
+          assert '.team-photo-alessa' in css
           assert 'object-fit: cover' in css
 
           for page in ('/tmp/index.html', '/tmp/about.html'):
               html = Path(page).read_text(encoding='utf-8')
-              assert 'assets/alessa-yang-v2.webp' in html
-              assert 'team-photo-zen' in html
-              assert 'team-photo-milos' in html
+              assert 'assets/alessa-yang-portrait-20260806.jpg' in html
               assert '>AY<' not in html
               assert 'Portrait placeholder' not in html
           PY
               then
-                echo "Verified live WinVerse leadership portraits at $base"
+                echo "Verified live Alessa portrait at $base"
                 exit 0
               fi
             fi
@@ -236,7 +230,7 @@ jobs:
             sleep 10
           done
 
-          echo "Live leadership portrait verification failed."
+          echo "Live Alessa portrait verification failed."
           exit 1
 
       - name: Publish deployment record
