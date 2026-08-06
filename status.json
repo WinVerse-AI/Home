@@ -1,7 +1,7 @@
 {
-  "status": "cancelled",
-  "commit_sha": "0bb23fb49319ed03486f49da20b927cfa8297b08",
+  "status": "failure",
+  "commit_sha": "9a67cec35b7d0df9203a5c766cbdea97b1235488",
   "page_url": "https://winverse-ai.github.io/Home/",
-  "run_url": "https://github.com/WinVerse-AI/Home/actions/runs/31104352948",
-  "verified_at_utc": "2026-08-06T13:15:44Z"
+  "run_url": "https://github.com/WinVerse-AI/Home/actions/runs/31105089550",
+  "verified_at_utc": "2026-08-06T13:26:13Z"
 }
