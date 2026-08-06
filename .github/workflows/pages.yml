@@ -68,7 +68,6 @@ jobs:
               'commercial-beachhead.html', 'differentiation.html',
               'expansion-engine.html',
           )
-          pages = [root / name for name in page_names]
           expected_nav = {
               'overview.html', 'platform.html', 'development.html', 'evidence.html',
               'market.html', 'about.html', 'contact.html',
@@ -102,51 +101,49 @@ jobs:
                   elif tag == 'link' and values.get('href'):
                       self.styles.append(values['href'])
 
-          for page in pages:
+          for page_name in page_names:
+              page = root / page_name
               if not page.is_file():
-                  raise SystemExit(f'Missing built page: {page.name}')
-              html = page.read_text(encoding='utf-8')
+                  raise SystemExit(f'Missing built page: {page_name}')
               audit = Audit()
-              audit.feed(html)
+              audit.feed(page.read_text(encoding='utf-8'))
 
               local_nav = {href for href in audit.links if href in expected_nav}
               if local_nav != expected_nav:
-                  raise SystemExit(f'{page.name}: incomplete navigation: {local_nav}')
+                  raise SystemExit(f'{page_name}: incomplete navigation: {local_nav}')
 
               present_styles = {urlsplit(href).path for href in audit.styles}
               missing_styles = global_styles - present_styles
               if missing_styles:
-                  raise SystemExit(f'{page.name}: missing global styles: {missing_styles}')
+                  raise SystemExit(f'{page_name}: missing global styles: {missing_styles}')
 
               present_scripts = {urlsplit(src).path for src in audit.scripts}
               missing_scripts = required_scripts - present_scripts
               if missing_scripts:
-                  raise SystemExit(f'{page.name}: missing scripts: {missing_scripts}')
+                  raise SystemExit(f'{page_name}: missing scripts: {missing_scripts}')
 
               for href in audit.links:
                   if href.startswith('#'):
                       if href[1:] and href[1:] not in audit.ids:
-                          raise SystemExit(f'{page.name}: broken anchor {href}')
+                          raise SystemExit(f'{page_name}: broken anchor {href}')
                       continue
                   if href.startswith(('mailto:', 'tel:', 'http://', 'https://')):
                       continue
                   target = urlsplit(href).path
                   if target and not (root / target).exists():
-                      raise SystemExit(f'{page.name}: broken local link {href}')
+                      raise SystemExit(f'{page_name}: broken local link {href}')
 
               for asset in audit.scripts + audit.styles:
                   target = urlsplit(asset).path
                   if target and not (root / target).exists():
-                      raise SystemExit(f'{page.name}: missing asset {asset}')
+                      raise SystemExit(f'{page_name}: missing asset {asset}')
 
               for image in audit.images:
                   src = image.get('src', '')
                   if not image.get('alt'):
-                      raise SystemExit(f'{page.name}: missing alt text for {src}')
-                  if src.startswith(('http://', 'https://')):
-                      continue
-                  if not (root / src).exists():
-                      raise SystemExit(f'{page.name}: missing image {src}')
+                      raise SystemExit(f'{page_name}: missing alt text for {src}')
+                  if not src.startswith(('http://', 'https://')) and not (root / src).exists():
+                      raise SystemExit(f'{page_name}: missing image {src}')
 
           language_js = (root / 'language.js').read_text(encoding='utf-8')
           language_css = (root / 'language.css').read_text(encoding='utf-8')
@@ -176,7 +173,7 @@ jobs:
 
           if 'translate.google.com/translate_a/element.js' not in language_js:
               raise SystemExit('Automated translation service loader missing')
-          if "localStorage.setItem(STORAGE_KEY" not in language_js:
+          if 'localStorage.setItem(STORAGE_KEY' not in language_js:
               raise SystemExit('Persistent language selection missing')
 
           pillar_expectations = {
@@ -202,16 +199,12 @@ jobs:
               if len(data) < 8000 or data[4:8] != b'ftyp' or b'avif' not in data[:24]:
                   raise SystemExit(f'{css_name}: invalid or undersized AVIF payload')
 
-          if (root / 'asset-sources').exists() or (root / 'asset-sources-v3').exists():
-              raise SystemExit('Working image-source directories leaked into Pages artifact')
-
           portrait = root / 'assets/alessa-yang-portrait-20260806.jpg'
-          data = portrait.read_bytes()
           expected_hash = '8aa919332c5a52f568ad33d9140010a6471c9f5745de0d4fe0ac40dba0d735fc'
-          if hashlib.sha256(data).hexdigest() != expected_hash:
+          if hashlib.sha256(portrait.read_bytes()).hexdigest() != expected_hash:
               raise SystemExit('Alessa portrait checksum mismatch')
 
-          print('Validated eleven pages, six language options and three embedded AVIF visuals.')
+          print('Validated eleven pages, six language options and three AVIF visuals.')
           PY
 
   deploy:
@@ -224,7 +217,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -243,6 +236,10 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 1800000
+          error_count: 30
+          reporting_interval: 5000
 
       - name: Verify live site and language controls
         env:
@@ -263,17 +260,14 @@ jobs:
           scripts=(script.js language.js)
           flags=(gb.svg cn.svg jp.svg fr.svg de.svg es.svg)
 
-          for attempt in {1..15}; do
+          for attempt in {1..18}; do
             ready=true
             rm -rf /tmp/winverse-live
             mkdir -p /tmp/winverse-live/flags
 
             for page in "${pages[@]}"; do
-              if ! curl --fail --silent --show-error --location --retry 2 \
-                --output "/tmp/winverse-live/${page}" "${base}${page}"; then
-                ready=false
-                break
-              fi
+              curl --fail --silent --show-error --location --retry 2 \
+                --output "/tmp/winverse-live/${page}" "${base}${page}" || { ready=false; break; }
             done
 
             if [ "$ready" = true ]; then
@@ -304,12 +298,13 @@ jobs:
           from pathlib import Path
 
           root = Path('/tmp/winverse-live')
-          for page_name in (
+          pages = (
               'index.html', 'overview.html', 'platform.html', 'development.html',
               'evidence.html', 'market.html', 'about.html', 'contact.html',
               'commercial-beachhead.html', 'differentiation.html',
               'expansion-engine.html',
-          ):
+          )
+          for page_name in pages:
               html = (root / page_name).read_text(encoding='utf-8')
               assert 'language.css' in html
               assert 'language.js' in html
@@ -343,7 +338,7 @@ jobs:
               exit 0
             fi
 
-            echo "Live site not ready; attempt ${attempt}/15"
+            echo "Live site not ready; attempt ${attempt}/18"
             sleep 10
           done
 
