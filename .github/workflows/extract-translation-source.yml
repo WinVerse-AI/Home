@@ -1,0 +1,77 @@
+name: Extract translation source
+
+on:
+  push:
+    branches: ["diagnostic-pages"]
+    paths:
+      - ".github/workflows/extract-translation-source.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Extract visible English strings
+        run: |
+          python3 - <<'PY'
+          import json
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          pages = [
+              'index.html','overview.html','platform.html','development.html',
+              'evidence.html','market.html','about.html','contact.html',
+              'commercial-beachhead.html','differentiation.html','expansion-engine.html'
+          ]
+          skip_tags = {'script','style','svg','path'}
+          class Parser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.stack=[]
+                  self.items=[]
+              def handle_starttag(self, tag, attrs):
+                  self.stack.append(tag)
+                  d=dict(attrs)
+                  for attr in ('aria-label','title','alt','placeholder'):
+                      value=d.get(attr)
+                      if value and value.strip():
+                          self.items.append({'kind':'attribute','attribute':attr,'text':value.strip()})
+              def handle_startendtag(self, tag, attrs):
+                  d=dict(attrs)
+                  for attr in ('aria-label','title','alt','placeholder'):
+                      value=d.get(attr)
+                      if value and value.strip():
+                          self.items.append({'kind':'attribute','attribute':attr,'text':value.strip()})
+              def handle_endtag(self, tag):
+                  if self.stack:
+                      self.stack.pop()
+              def handle_data(self, data):
+                  if any(tag in skip_tags for tag in self.stack):
+                      return
+                  text=' '.join(data.split())
+                  if text:
+                      self.items.append({'kind':'text','text':text})
+
+          result={}
+          unique=[]
+          seen=set()
+          for page in pages:
+              parser=Parser()
+              parser.feed(Path(page).read_text(encoding='utf-8'))
+              result[page]=parser.items
+              for item in parser.items:
+                  key=(item.get('kind'),item.get('attribute'),item['text'])
+                  if key not in seen:
+                      seen.add(key)
+                      unique.append(item)
+          Path('translation-source.json').write_text(json.dumps({'pages':result,'unique':unique},ensure_ascii=False,indent=2),encoding='utf-8')
+          print(f'Extracted {len(unique)} unique strings')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add translation-source.json
+          git commit -m "Extract translation source strings" || true
+          git push origin HEAD:diagnostic-pages
