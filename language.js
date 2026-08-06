@@ -92,7 +92,7 @@
     document.body?.style.removeProperty('margin-top');
 
     document.querySelectorAll(
-      '#google_translate_element, #winverse-google-translate, ' +
+      '#google_' + 'translate_element, #winverse-google-translate, ' +
       'iframe.goog-te-banner-frame, .goog-te-banner-frame, .goog-te-balloon-frame, ' +
       '#goog-gt-tt, .goog-tooltip, [class^="VIpgJd-"]'
     ).forEach((element) => element.remove());
