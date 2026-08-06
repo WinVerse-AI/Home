@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Validate multipage multilingual site
+      - name: Build and validate multipage site
         shell: bash
         run: |
           set -euo pipefail
@@ -30,13 +30,16 @@ jobs:
             platform.html
             development.html
             evidence.html
+            market.html
             about.html
             contact.html
             styles.css
             visuals.css
             pages.css
             evidence-review.css
+            market.css
             script.js
+            build_site.py
             assets/winverse-logo.webp
             assets/zen-koh.webp
             assets/serotonix-colourways.webp
@@ -55,7 +58,10 @@ jobs:
 
           node --check script.js
           for file in i18n/*.js; do node --check "$file"; done
+          python3 -m py_compile build_site.py
+          python3 build_site.py
 
+          cd dist
           python3 <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
@@ -63,12 +69,12 @@ jobs:
 
           pages = [
               Path('index.html'), Path('overview.html'), Path('platform.html'),
-              Path('development.html'), Path('evidence.html'),
+              Path('development.html'), Path('evidence.html'), Path('market.html'),
               Path('about.html'), Path('contact.html')
           ]
           expected_nav = {
-              'overview.html','platform.html','development.html',
-              'evidence.html','about.html','contact.html'
+              'overview.html','platform.html','development.html','evidence.html',
+              'market.html','about.html','contact.html'
           }
 
           class Audit(HTMLParser):
@@ -99,7 +105,7 @@ jobs:
 
               local_nav = {href for href in audit.links if href in expected_nav}
               if local_nav != expected_nav:
-                  raise SystemExit(f'{page}: incomplete page navigation: {local_nav}')
+                  raise SystemExit(f'{page}: incomplete navigation: {local_nav}')
 
               for href in audit.links:
                   if href.startswith('#'):
@@ -110,7 +116,7 @@ jobs:
                       continue
                   target = urlsplit(href).path
                   if target and not Path(target).exists():
-                      raise SystemExit(f'{page}: broken link {href}')
+                      raise SystemExit(f'{page}: broken local link {href}')
 
               for asset in audit.scripts + audit.styles:
                   target = urlsplit(asset).path
@@ -129,15 +135,31 @@ jobs:
           evidence = Path('evidence.html').read_text(encoding='utf-8')
           required_evidence = [
               'Promising experiment. Unproven treatment.',
-              'NCT06261177',
-              'NCT07629050',
-              'reference-list',
+              'NCT06261177', 'NCT07629050', 'reference-list',
               'evidence-review.css',
               'Build the measurement system before scaling the treatment story.'
           ]
           missing = [item for item in required_evidence if item not in evidence]
           if missing:
               raise SystemExit(f'Evidence review incomplete: {missing}')
+
+          market = Path('market.html').read_text(encoding='utf-8')
+          required_market = [
+              'Personalised facial activation.',
+              'Singapore Founders Programme',
+              'US$28.60m',
+              'market.css',
+              'source-14',
+              'Build the desirable ritual. Earn the claim. Scale only after both work.'
+          ]
+          missing = [item for item in required_market if item not in market]
+          if missing:
+              raise SystemExit(f'Market strategy incomplete: {missing}')
+
+          home = Path('index.html').read_text(encoding='utf-8')
+          for item in ['Personalised facial activation.', 'market-preview', 'market.html']:
+              if item not in home:
+                  raise SystemExit(f'Homepage commercial positioning missing: {item}')
 
           for path in [
               Path('assets/winverse-logo.webp'), Path('assets/zen-koh.webp'),
@@ -149,7 +171,7 @@ jobs:
               if data[:4] != b'RIFF' or data[8:12] != b'WEBP':
                   raise SystemExit(f'Invalid WebP: {path}')
 
-          print('Validated seven pages, cited evidence review, navigation and local assets.')
+          print('Validated eight pages, commercial strategy, evidence review, navigation and local assets.')
           PY
 
   deploy:
@@ -167,26 +189,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Build production site
+        run: python3 build_site.py
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: .
+          path: dist
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify live multipage site
+      - name: Verify live commercial strategy site
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         shell: bash
         run: |
           set -euo pipefail
           base="${PAGE_URL%/}/"
-          pages=(index.html overview.html platform.html development.html evidence.html about.html contact.html)
+          pages=(index.html overview.html platform.html development.html evidence.html market.html about.html contact.html)
           for attempt in {1..12}; do
             ready=true
             for page in "${pages[@]}"; do
@@ -196,17 +221,19 @@ jobs:
               fi
             done
             if [ "$ready" = true ] \
-              && grep -q 'overview.html' /tmp/index.html \
-              && grep -q 'A venture built around disciplined claims' /tmp/overview.html \
+              && grep -q 'Personalised facial activation.' /tmp/index.html \
+              && grep -q 'A consumer category with an evidence gate.' /tmp/overview.html \
               && grep -q 'One product system' /tmp/platform.html \
-              && grep -q 'Progress is measured by resolved risk' /tmp/development.html \
+              && grep -q 'Resolve product, claim and economic risk in sequence.' /tmp/development.html \
               && grep -q 'Promising experiment. Unproven treatment.' /tmp/evidence.html \
-              && grep -q 'NCT07629050' /tmp/evidence.html \
-              && grep -q 'evidence-review.css' /tmp/evidence.html \
-              && grep -q 'A small team with explicit accountability' /tmp/about.html \
+              && grep -q 'Personalised Facial Activation' /tmp/market.html \
+              && grep -q 'Singapore Founders Programme' /tmp/market.html \
+              && grep -q 'US\$28.60m' /tmp/market.html \
+              && grep -q 'market.html' /tmp/about.html \
               && grep -q 'winverse.ai@gmail.com' /tmp/contact.html \
+              && curl --fail --silent --show-error --location --output /dev/null "${base}market.css" \
               && curl --fail --silent --show-error --location --output /dev/null "${base}evidence-review.css"; then
-              echo "Verified WinVerse cited evidence review at $base"
+              echo "Verified WinVerse commercial strategy build at $base"
               exit 0
             fi
             echo "Live site not ready; attempt ${attempt}/12"
