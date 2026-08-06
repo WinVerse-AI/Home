@@ -1,3 +1,7 @@
+@import url("pillar-image-beauty.css");
+@import url("pillar-image-affective.css");
+@import url("pillar-image-research.css");
+
 /* Strategic-pillar cards and explainer pages. */
 .pillar-nav {
   display: grid;
@@ -39,15 +43,15 @@
 }
 
 .pillar-image-beauty {
-  background-image: url("assets/pillar-premium-beauty.webp");
+  background-image: var(--pillar-image-beauty);
 }
 
 .pillar-image-affective {
-  background-image: url("assets/pillar-affective-experience.webp");
+  background-image: var(--pillar-image-affective);
 }
 
 .pillar-image-research {
-  background-image: url("assets/pillar-claim-research.webp");
+  background-image: var(--pillar-image-research);
 }
 
 .pillar-copy {
