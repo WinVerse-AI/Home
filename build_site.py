@@ -21,6 +21,10 @@ GLOBAL_STYLESHEETS = (
     "pillar-image-beauty.css",
     "pillar-image-affective.css",
     "pillar-image-research.css",
+    "language.css",
+)
+GLOBAL_SCRIPTS = (
+    "language.js",
 )
 
 
@@ -74,6 +78,20 @@ def inject_stylesheet(path: Path, stylesheet: str) -> None:
     path.write_text(html, encoding="utf-8")
 
 
+def inject_script(path: Path, script: str) -> None:
+    html = path.read_text(encoding="utf-8")
+    if f'src="{script}"' not in html:
+        marker = "</head>"
+        if marker not in html:
+            raise RuntimeError(f"Could not locate head closing tag in {path.name}")
+        html = html.replace(
+            marker,
+            f'  <script defer src="{script}"></script>\n</head>',
+            1,
+        )
+    path.write_text(html, encoding="utf-8")
+
+
 def inject_alessa_portrait(path: Path) -> None:
     html = path.read_text(encoding="utf-8")
     if "Alessa Yang" not in html or "team-media-placeholder" not in html:
@@ -105,10 +123,12 @@ def main() -> None:
         inject_market_navigation(page)
         for stylesheet in GLOBAL_STYLESHEETS:
             inject_stylesheet(page, stylesheet)
+        for script in GLOBAL_SCRIPTS:
+            inject_script(page, script)
         inject_alessa_portrait(page)
     print(
-        f"Built {len(pages)} pages in {DIST} with polished layouts "
-        "and high-resolution pillar imagery"
+        f"Built {len(pages)} pages in {DIST} with polished layouts, "
+        "high-resolution pillar imagery and six language options"
     )
 
 

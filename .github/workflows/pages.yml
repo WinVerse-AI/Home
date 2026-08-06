@@ -32,10 +32,12 @@ jobs:
             styles.css visuals.css pages.css evidence-review.css market.css
             typography.css leadership.css pillar-visuals.css layout-polish.css
             pillar-image-beauty.css pillar-image-affective.css pillar-image-research.css
-            script.js build_site.py
+            language.css script.js language.js build_site.py
             assets/winverse-logo.webp assets/zen-koh.webp
             assets/serotonix-colourways.webp assets/serotonix-exploded.webp
             assets/serotonix-detail.webp assets/alessa-yang-portrait-20260806.jpg
+            assets/flags/gb.svg assets/flags/cn.svg assets/flags/jp.svg
+            assets/flags/fr.svg assets/flags/de.svg assets/flags/es.svg
             i18n/en.js i18n/zh-CN.js i18n/ja.js
             i18n/fr.js i18n/de.js i18n/es.js
           )
@@ -45,6 +47,7 @@ jobs:
           done
 
           node --check script.js
+          node --check language.js
           for file in i18n/*.js; do node --check "$file"; done
           python3 -m py_compile build_site.py
           python3 build_site.py
@@ -53,6 +56,7 @@ jobs:
           import base64
           import hashlib
           import re
+          import xml.etree.ElementTree as ET
           from html.parser import HTMLParser
           from pathlib import Path
           from urllib.parse import urlsplit
@@ -72,8 +76,9 @@ jobs:
           global_styles = {
               'typography.css', 'leadership.css', 'layout-polish.css',
               'pillar-image-beauty.css', 'pillar-image-affective.css',
-              'pillar-image-research.css',
+              'pillar-image-research.css', 'language.css',
           }
+          required_scripts = {'script.js', 'language.js'}
 
           class Audit(HTMLParser):
               def __init__(self):
@@ -108,13 +113,15 @@ jobs:
               if local_nav != expected_nav:
                   raise SystemExit(f'{page.name}: incomplete navigation: {local_nav}')
 
-              present_global_styles = {
-                  urlsplit(href).path for href in audit.styles
-                  if urlsplit(href).path in global_styles
-              }
-              if present_global_styles != global_styles:
-                  missing = global_styles - present_global_styles
-                  raise SystemExit(f'{page.name}: missing global styles: {missing}')
+              present_styles = {urlsplit(href).path for href in audit.styles}
+              missing_styles = global_styles - present_styles
+              if missing_styles:
+                  raise SystemExit(f'{page.name}: missing global styles: {missing_styles}')
+
+              present_scripts = {urlsplit(src).path for src in audit.scripts}
+              missing_scripts = required_scripts - present_scripts
+              if missing_scripts:
+                  raise SystemExit(f'{page.name}: missing scripts: {missing_scripts}')
 
               for href in audit.links:
                   if href.startswith('#'):
@@ -140,6 +147,37 @@ jobs:
                       continue
                   if not (root / src).exists():
                       raise SystemExit(f'{page.name}: missing image {src}')
+
+          language_js = (root / 'language.js').read_text(encoding='utf-8')
+          language_css = (root / 'language.css').read_text(encoding='utf-8')
+          expected_languages = {
+              'en': 'assets/flags/gb.svg',
+              'zh-CN': 'assets/flags/cn.svg',
+              'ja': 'assets/flags/jp.svg',
+              'fr': 'assets/flags/fr.svg',
+              'de': 'assets/flags/de.svg',
+              'es': 'assets/flags/es.svg',
+          }
+          for code, flag in expected_languages.items():
+              if code not in language_js or flag not in language_js:
+                  raise SystemExit(f'Language runtime missing {code} / {flag}')
+              flag_path = root / flag
+              ET.parse(flag_path)
+              svg = flag_path.read_text(encoding='utf-8')
+              if '<svg' not in svg or 'viewBox="0 0 36 24"' not in svg:
+                  raise SystemExit(f'Invalid flag icon: {flag}')
+
+          for token in (
+              'language-picker', 'language-menu', 'language-option',
+              'translation-engine', 'prefers-reduced-motion',
+          ):
+              if token not in language_css:
+                  raise SystemExit(f'Language stylesheet missing: {token}')
+
+          if 'translate.google.com/translate_a/element.js' not in language_js:
+              raise SystemExit('Automated translation service loader missing')
+          if "localStorage.setItem(STORAGE_KEY" not in language_js:
+              raise SystemExit('Persistent language selection missing')
 
           pillar_expectations = {
               'commercial-beachhead.html': ('pillar-image-beauty', 'Premium beauty technology'),
@@ -173,7 +211,7 @@ jobs:
           if hashlib.sha256(data).hexdigest() != expected_hash:
               raise SystemExit('Alessa portrait checksum mismatch')
 
-          print('Validated eleven responsive pages and three embedded AVIF pillar visuals.')
+          print('Validated eleven pages, six language options and three embedded AVIF visuals.')
           PY
 
   deploy:
@@ -206,7 +244,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify live site
+      - name: Verify live site and language controls
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         shell: bash
@@ -220,13 +258,15 @@ jobs:
           )
           styles=(
             layout-polish.css pillar-image-beauty.css
-            pillar-image-affective.css pillar-image-research.css
+            pillar-image-affective.css pillar-image-research.css language.css
           )
+          scripts=(script.js language.js)
+          flags=(gb.svg cn.svg jp.svg fr.svg de.svg es.svg)
 
           for attempt in {1..15}; do
             ready=true
             rm -rf /tmp/winverse-live
-            mkdir -p /tmp/winverse-live
+            mkdir -p /tmp/winverse-live/flags
 
             for page in "${pages[@]}"; do
               if ! curl --fail --silent --show-error --location --retry 2 \
@@ -238,20 +278,50 @@ jobs:
 
             if [ "$ready" = true ]; then
               for style in "${styles[@]}"; do
-                if ! curl --fail --silent --show-error --location --retry 2 \
-                  --output "/tmp/winverse-live/${style}" "${base}${style}"; then
-                  ready=false
-                  break
-                fi
+                curl --fail --silent --show-error --location --retry 2 \
+                  --output "/tmp/winverse-live/${style}" "${base}${style}" || { ready=false; break; }
+              done
+            fi
+
+            if [ "$ready" = true ]; then
+              for script in "${scripts[@]}"; do
+                curl --fail --silent --show-error --location --retry 2 \
+                  --output "/tmp/winverse-live/${script}" "${base}${script}" || { ready=false; break; }
+              done
+            fi
+
+            if [ "$ready" = true ]; then
+              for flag in "${flags[@]}"; do
+                curl --fail --silent --show-error --location --retry 2 \
+                  --output "/tmp/winverse-live/flags/${flag}" "${base}assets/flags/${flag}" || { ready=false; break; }
               done
             fi
 
             if [ "$ready" = true ] && python3 - <<'PY'
           import base64
           import re
+          import xml.etree.ElementTree as ET
           from pathlib import Path
 
           root = Path('/tmp/winverse-live')
+          for page_name in (
+              'index.html', 'overview.html', 'platform.html', 'development.html',
+              'evidence.html', 'market.html', 'about.html', 'contact.html',
+              'commercial-beachhead.html', 'differentiation.html',
+              'expansion-engine.html',
+          ):
+              html = (root / page_name).read_text(encoding='utf-8')
+              assert 'language.css' in html
+              assert 'language.js' in html
+
+          language_js = (root / 'language.js').read_text(encoding='utf-8')
+          for code in ('en', 'zh-CN', 'ja', 'fr', 'de', 'es'):
+              assert code in language_js
+          assert 'translate.google.com/translate_a/element.js' in language_js
+
+          for flag in ('gb.svg', 'cn.svg', 'jp.svg', 'fr.svg', 'de.svg', 'es.svg'):
+              ET.parse(root / 'flags' / flag)
+
           pillars = {
               'commercial-beachhead.html': 'pillar-image-beauty.css',
               'differentiation.html': 'pillar-image-affective.css',
@@ -259,10 +329,7 @@ jobs:
           }
           for page_name, css_name in pillars.items():
               html = (root / page_name).read_text(encoding='utf-8')
-              assert 'layout-polish.css' in html
               assert css_name in html
-
-          for css_name in pillars.values():
               text = (root / css_name).read_text(encoding='utf-8')
               match = re.search(r'data:image/avif;base64,([^"\)]+)', text)
               assert match
@@ -272,7 +339,7 @@ jobs:
               assert b'avif' in data[:24]
           PY
             then
-              echo "Verified live WinVerse site at $base"
+              echo "Verified live WinVerse language controls at $base"
               exit 0
             fi
 
@@ -280,7 +347,7 @@ jobs:
             sleep 10
           done
 
-          echo "Live WinVerse verification failed."
+          echo "Live WinVerse language verification failed."
           exit 1
 
       - name: Publish deployment record
