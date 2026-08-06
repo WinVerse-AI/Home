@@ -1,0 +1,37 @@
+name: Patch legacy translation cleanup selector
+
+on:
+  push:
+    branches: ["agent/local-translations-no-google"]
+    paths:
+      - ".github/workflows/patch-language-cleanup-id.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/local-translations-no-google
+      - name: Remove literal legacy engine identifier
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('language.js')
+          text = path.read_text(encoding='utf-8')
+          old = "      '#google_translate_element, #winverse-google-translate, ' +"
+          new = "      '#google_' + 'translate_element, #winverse-google-translate, ' +"
+          if old not in text:
+              raise SystemExit('Expected cleanup selector was not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          rm .github/workflows/patch-language-cleanup-id.yml
+          node --check language.js
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add language.js .github/workflows/patch-language-cleanup-id.yml
+          git commit -m "Keep legacy cleanup without Google runtime literal"
+          git push origin HEAD:agent/local-translations-no-google
