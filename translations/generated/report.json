@@ -1,0 +1,32 @@
+{
+  "zh-CN": {
+    "strings": 797,
+    "changed": 761,
+    "failure_count": 0,
+    "failures": []
+  },
+  "ja": {
+    "strings": 797,
+    "changed": 761,
+    "failure_count": 0,
+    "failures": []
+  },
+  "fr": {
+    "strings": 797,
+    "changed": 730,
+    "failure_count": 0,
+    "failures": []
+  },
+  "de": {
+    "strings": 797,
+    "changed": 735,
+    "failure_count": 0,
+    "failures": []
+  },
+  "es": {
+    "strings": 797,
+    "changed": 706,
+    "failure_count": 0,
+    "failures": []
+  }
+}
