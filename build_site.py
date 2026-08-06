@@ -62,12 +62,54 @@ def inject_typography_stylesheet(path: Path) -> None:
     path.write_text(html, encoding="utf-8")
 
 
+def inject_leadership_stylesheet(path: Path) -> None:
+    html = path.read_text(encoding="utf-8")
+    if 'href="leadership.css"' not in html:
+        marker = "</head>"
+        if marker not in html:
+            raise RuntimeError(f"Could not locate head closing tag in {path.name}")
+        html = html.replace(
+            marker,
+            '  <link rel="stylesheet" href="leadership.css">\n</head>',
+            1,
+        )
+    path.write_text(html, encoding="utf-8")
+
+
+def inject_alessa_portrait(path: Path) -> None:
+    html = path.read_text(encoding="utf-8")
+    if "Alessa Yang" not in html or "team-media-placeholder" not in html:
+        return
+
+    pattern = re.compile(
+        r'<div class="team-media team-media-placeholder">'
+        r'<span class="team-initials" aria-hidden="true">AY</span>'
+        r'<span class="portrait-status"[^>]*>Portrait placeholder</span>'
+        r'</div>'
+    )
+    replacement = (
+        '<div class="team-media">'
+        '<span class="team-initials" aria-hidden="true">AY</span>'
+        '<img class="team-photo team-photo-alessa" '
+        'src="assets/alessa-yang.webp" width="900" height="1200" '
+        'loading="lazy" decoding="async" alt="Portrait of Alessa Yang" '
+        'onerror="this.hidden=true;this.parentElement.classList.add(\'image-failed\')">'
+        '</div>'
+    )
+    html, count = pattern.subn(replacement, html, count=1)
+    if count != 1:
+        raise RuntimeError(f"Could not replace Alessa portrait placeholder in {path.name}")
+    path.write_text(html, encoding="utf-8")
+
+
 def main() -> None:
     copy_site()
     pages = sorted(DIST.glob("*.html"))
     for page in pages:
         inject_market_navigation(page)
         inject_typography_stylesheet(page)
+        inject_leadership_stylesheet(page)
+        inject_alessa_portrait(page)
     print(f"Built {len(pages)} pages in {DIST}")
 
 

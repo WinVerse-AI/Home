@@ -1,0 +1,13 @@
+/* Leadership portrait presentation. */
+.team-photo-alessa {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 24%;
+}
+
+@media (max-width: 680px) {
+  .team-photo-alessa {
+    object-position: center 22%;
+  }
+}
