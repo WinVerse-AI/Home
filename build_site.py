@@ -22,9 +22,11 @@ GLOBAL_STYLESHEETS = (
     "pillar-image-affective.css",
     "pillar-image-research.css",
     "language.css",
+    "translate-cleanup.css",
 )
 GLOBAL_SCRIPTS = (
     "language.js",
+    "translate-cleanup.js",
 )
 
 
