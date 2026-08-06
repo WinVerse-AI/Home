@@ -15,7 +15,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     permissions:
       contents: read
       pages: write
@@ -37,6 +37,9 @@ jobs:
             pillar-visuals.css pillar-image-beauty.css
             pillar-image-affective.css pillar-image-research.css
             language.css script.js language.js build_site.py
+            translations/generated/zh-CN.json translations/generated/ja.json
+            translations/generated/fr.json translations/generated/de.json
+            translations/generated/es.json translations/generated/report.json
             assets/winverse-logo.webp assets/zen-koh.webp
             assets/serotonix-colourways.webp assets/serotonix-exploded.webp
             assets/serotonix-detail.webp assets/alessa-yang-portrait-20260806.jpg
@@ -48,6 +51,9 @@ jobs:
             test -s "$file" || { echo "Missing file: $file"; exit 1; }
           done
 
+          test ! -e translate-cleanup.js
+          test ! -e translate-cleanup.css
+
           node --check script.js
           node --check language.js
           python3 -m py_compile build_site.py
@@ -58,6 +64,7 @@ jobs:
           EOF
 
           python3 <<'PY'
+          import json
           import xml.etree.ElementTree as ET
           from html.parser import HTMLParser
           from pathlib import Path
@@ -82,6 +89,7 @@ jobs:
                   self.images = []
                   self.scripts = []
                   self.styles = []
+
               def handle_starttag(self, tag, attrs):
                   values = dict(attrs)
                   if tag == 'a' and values.get('href'):
@@ -97,10 +105,13 @@ jobs:
               page = root / name
               if not page.is_file():
                   raise SystemExit(f'Missing built page: {name}')
-              audit = Audit()
-              audit.feed(page.read_text(encoding='utf-8'))
+              html = page.read_text(encoding='utf-8')
+              if 'translate-cleanup' in html or 'translate.google.com' in html:
+                  raise SystemExit(f'{name}: obsolete Google translation asset remains')
 
-              nav = {href for href in audit.links if href in expected_nav}
+              audit = Audit()
+              audit.feed(html)
+              nav = {urlsplit(href).path for href in audit.links if urlsplit(href).path in expected_nav}
               if nav != expected_nav:
                   raise SystemExit(f'{name}: incomplete navigation: {nav}')
 
@@ -135,12 +146,42 @@ jobs:
           for flag in ('gb.svg', 'cn.svg', 'jp.svg', 'fr.svg', 'de.svg', 'es.svg'):
               ET.parse(root / 'assets' / 'flags' / flag)
 
-          language = (root / 'language.js').read_text(encoding='utf-8')
-          for code in ('en', 'zh-CN', 'ja', 'fr', 'de', 'es'):
-              if code not in language:
-                  raise SystemExit(f'Language runtime missing {code}')
+          runtime = (root / 'language.js').read_text(encoding='utf-8')
+          for forbidden in (
+              'translate.google.com', 'TranslateElement', 'google_translate_element',
+              'goog-te-combo', 'applyGoogleLanguage', 'loadGoogleTranslate',
+          ):
+              if forbidden in runtime:
+                  raise SystemExit(f'Google translation runtime remains: {forbidden}')
+          for required in (
+              'translations/generated', 'loadDictionary', 'applyDictionary',
+              'clearLegacyGoogleState', 'localStorage',
+          ):
+              if required not in runtime:
+                  raise SystemExit(f'Local translation runtime missing: {required}')
 
-          print('Validated eleven pages and six language options.')
+          locales = ('zh-CN', 'ja', 'fr', 'de', 'es')
+          key_set = None
+          for locale in locales:
+              path = root / 'translations' / 'generated' / f'{locale}.json'
+              payload = json.loads(path.read_text(encoding='utf-8'))
+              if payload.get('locale') != locale or payload.get('source') != 'en':
+                  raise SystemExit(f'{locale}: invalid dictionary metadata')
+              strings = payload.get('strings')
+              if not isinstance(strings, dict) or len(strings) < 300:
+                  raise SystemExit(f'{locale}: incomplete dictionary ({len(strings or {})})')
+              current_keys = set(strings)
+              if key_set is None:
+                  key_set = current_keys
+              elif current_keys != key_set:
+                  raise SystemExit(f'{locale}: dictionary key set differs')
+              changed = sum(1 for key, value in strings.items() if value and value != key)
+              if changed < len(strings) * 0.45:
+                  raise SystemExit(f'{locale}: too few translated strings ({changed}/{len(strings)})')
+              if strings.get('Overview') in (None, '', 'Overview'):
+                  raise SystemExit(f'{locale}: navigation translation smoke test failed')
+
+          print('Validated eleven pages and five complete local translation dictionaries.')
           PY
 
       - name: Configure GitHub Pages
@@ -154,7 +195,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     permissions:
       actions: read
       contents: write
@@ -164,17 +205,24 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Submit Pages deployment without the ten-minute cancellation ceiling
+      - name: Submit deployment and verify the public commit
         id: deployment
         uses: actions/github-script@v8
-        timeout-minutes: 35
+        timeout-minutes: 45
         with:
           github-token: ${{ github.token }}
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const terminalSuccess = new Set(['succeed', 'success', 'built']);
-            const terminalFailure = new Set(['failed', 'failure', 'error', 'errored', 'cancelled', 'canceled']);
+            const liveBase = 'https://winverse-ai.github.io/Home/';
+            const terminalSuccess = new Set([
+              'succeed', 'success', 'built', 'deployed',
+              'deployment_success', 'deployment_completed'
+            ]);
+            const terminalFailure = new Set([
+              'failed', 'failure', 'error', 'errored', 'cancelled', 'canceled',
+              'deployment_failed', 'deployment_cancelled', 'deployment_canceled'
+            ]);
 
             const artifacts = await github.paginate(
               github.rest.actions.listWorkflowRunArtifacts,
@@ -190,7 +238,8 @@ jobs:
             const staleDeployments = [
               'f33dfb30420b946d54d92e94e54b11494b1fd2f4',
               '0bb23fb49319ed03486f49da20b927cfa8297b08',
-              '9a67cec35b7d0df9203a5c766cbdea97b1235488'
+              '9a67cec35b7d0df9203a5c766cbdea97b1235488',
+              'dfdaa51a5bd2b9e962dfee72487bfca60779afc8'
             ];
             for (const deploymentId of staleDeployments) {
               try {
@@ -226,38 +275,55 @@ jobs:
             );
 
             const deploymentId = created.data.id || context.sha;
-            const rawPageUrl = created.data.page_url || 'winverse-ai.github.io/Home/';
-            const pageUrl = rawPageUrl.startsWith('http')
-              ? rawPageUrl
-              : `https://${rawPageUrl}`;
+            const rawPageUrl = created.data.page_url || liveBase;
+            const pageUrl = rawPageUrl.startsWith('http') ? rawPageUrl : `https://${rawPageUrl}`;
             core.setOutput('deployment_id', deploymentId);
             core.setOutput('page_url', pageUrl.endsWith('/') ? pageUrl : `${pageUrl}/`);
             core.info(`Submitted Pages deployment ${deploymentId} with artifact ${artifact.id}.`);
 
-            const deadline = Date.now() + 32 * 60 * 1000;
+            const deadline = Date.now() + 42 * 60 * 1000;
             while (Date.now() < deadline) {
-              const response = await github.request(
-                'GET /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}',
-                { owner, repo, pages_deployment_id: deploymentId }
-              );
-              const status = String(response.data.status || '').toLowerCase();
-              core.info(`Pages deployment status: ${status || 'unknown'}`);
-              if (terminalSuccess.has(status)) {
-                core.setOutput('status', status);
-                return;
+              try {
+                const response = await fetch(`${liveBase}version.json?run=${context.runId}&t=${Date.now()}`, {
+                  headers: { 'cache-control': 'no-cache' }
+                });
+                if (response.ok) {
+                  const version = await response.json();
+                  core.info(`Public commit: ${version.commit_sha || 'unknown'}`);
+                  if (version.commit_sha === context.sha) {
+                    core.setOutput('status', 'live_verified');
+                    return;
+                  }
+                }
+              } catch (error) {
+                core.info(`Public version check is not ready: ${error.message}`);
               }
-              if (terminalFailure.has(status)) {
-                throw new Error(`Pages deployment ended with status: ${status}`);
+
+              try {
+                const response = await github.request(
+                  'GET /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}',
+                  { owner, repo, pages_deployment_id: deploymentId }
+                );
+                const status = String(response.data.status || '').toLowerCase();
+                core.info(`Pages deployment status: ${status || 'unknown'}`);
+                if (terminalFailure.has(status)) {
+                  throw new Error(`Pages deployment ended with status: ${status}`);
+                }
+              } catch (error) {
+                if (error.message?.startsWith('Pages deployment ended')) throw error;
+                if (![404, 409, 422].includes(error.status)) throw error;
+                core.info(`Pages deployment status is temporarily unavailable (${error.status}).`);
               }
+
               await new Promise((resolve) => setTimeout(resolve, 10000));
             }
 
             throw new Error(
-              `Pages deployment ${deploymentId} is still processing after 32 minutes. ` +
-              'It was deliberately left active rather than cancelled.'
+              `The public site did not reach commit ${context.sha} within 42 minutes. ` +
+              `Deployment ${deploymentId} was left available for diagnosis.`
             );
 
-      - name: Verify exact multilingual build on the public site
+      - name: Verify local translations on the public site
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
           EXPECTED_SHA: ${{ github.sha }}
@@ -266,33 +332,38 @@ jobs:
           set -euo pipefail
           base="${PAGE_URL:-https://winverse-ai.github.io/Home/}"
           base="${base%/}/"
+          cache="?verify=${GITHUB_RUN_ID}"
 
-          for attempt in {1..60}; do
-            if curl --fail --silent --show-error --location \
-              --output /tmp/version.json "${base}version.json"; then
-              deployed_sha="$(python3 -c 'import json; print(json.load(open("/tmp/version.json"))["commit_sha"])')"
-              if [ "$deployed_sha" = "$EXPECTED_SHA" ]; then
-                break
-              fi
-            fi
-            if [ "$attempt" -eq 60 ]; then
-              echo "Live site did not reach commit $EXPECTED_SHA"
-              exit 1
-            fi
-            sleep 10
-          done
+          curl --fail --silent --show-error --location --output /tmp/version.json "${base}version.json${cache}"
+          deployed_sha="$(python3 -c 'import json; print(json.load(open("/tmp/version.json"))["commit_sha"])')"
+          test "$deployed_sha" = "$EXPECTED_SHA"
 
-          curl --fail --silent --show-error --location --output /tmp/index.html "${base}index.html"
-          curl --fail --silent --show-error --location --output /tmp/language.js "${base}language.js"
-          for flag in gb cn jp fr de es; do
-            curl --fail --silent --show-error --location \
-              --output "/tmp/${flag}.svg" "${base}assets/flags/${flag}.svg"
-          done
-
+          curl --fail --silent --show-error --location --output /tmp/index.html "${base}index.html${cache}"
+          curl --fail --silent --show-error --location --output /tmp/language.js "${base}language.js${cache}"
           grep -q 'language.js' /tmp/index.html
           grep -q 'language.css' /tmp/index.html
-          for code in en zh-CN ja fr de es; do grep -q "$code" /tmp/language.js; done
-          echo "Verified multilingual build $EXPECTED_SHA at $base"
+          ! grep -q 'translate-cleanup' /tmp/index.html
+          ! grep -q 'translate.google.com' /tmp/language.js
+          ! grep -q 'TranslateElement' /tmp/language.js
+          grep -q 'translations/generated' /tmp/language.js
+
+          mkdir -p /tmp/translations
+          for locale in zh-CN ja fr de es; do
+            curl --fail --silent --show-error --location \
+              --output "/tmp/translations/${locale}.json" \
+              "${base}translations/generated/${locale}.json${cache}"
+          done
+
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+          for locale in ('zh-CN', 'ja', 'fr', 'de', 'es'):
+              payload = json.loads((Path('/tmp/translations') / f'{locale}.json').read_text(encoding='utf-8'))
+              assert payload['locale'] == locale
+              assert len(payload['strings']) >= 300
+              assert payload['strings']['Overview'] != 'Overview'
+          PY
+          echo "Verified local multilingual build $EXPECTED_SHA at $base"
 
       - name: Publish deployment record
         if: always()
