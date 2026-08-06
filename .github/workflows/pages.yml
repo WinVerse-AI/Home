@@ -32,7 +32,7 @@ jobs:
             typography.css leadership.css script.js build_site.py
             assets/winverse-logo.webp assets/zen-koh.webp
             assets/serotonix-colourways.webp assets/serotonix-exploded.webp
-            assets/serotonix-detail.webp assets/alessa-yang-portrait.svg
+            assets/serotonix-detail.webp assets/alessa-yang-final.jpg
             i18n/en.js i18n/zh-CN.js i18n/ja.js
             i18n/fr.js i18n/de.js i18n/es.js
           )
@@ -47,8 +47,6 @@ jobs:
           python3 build_site.py
 
           python3 <<'PY'
-          import base64
-          import re
           from html.parser import HTMLParser
           from pathlib import Path
           from urllib.parse import urlsplit
@@ -118,19 +116,28 @@ jobs:
                   if not (root / src).exists():
                       raise SystemExit(f'{page.name}: missing image {src}')
 
-          portrait_path = root / 'assets/alessa-yang-portrait.svg'
-          svg = portrait_path.read_text(encoding='utf-8')
-          match = re.search(r'data:image/jpeg;base64,([^"\s]+)', svg)
-          if not match:
-              raise SystemExit('Embedded Alessa portrait payload is missing.')
-          jpeg = base64.b64decode(match.group(1), validate=True)
-          if len(jpeg) < 10000 or jpeg[:3] != b'\xff\xd8\xff' or jpeg[-2:] != b'\xff\xd9':
-              raise SystemExit('Embedded Alessa portrait is not a valid JPEG.')
+          portrait = root / 'assets/alessa-yang-final.jpg'
+          data = portrait.read_bytes()
+          if len(data) < 10000 or data[:3] != b'\xff\xd8\xff' or data[-2:] != b'\xff\xd9':
+              raise SystemExit('Alessa portrait is not a valid JPEG payload.')
+
+          leadership_css = (root / 'leadership.css').read_text(encoding='utf-8')
+          for selector in ('.team-photo-alessa', '.team-photo-zen', '.team-photo-milos'):
+              if selector not in leadership_css:
+                  raise SystemExit(f'Missing leadership portrait rule: {selector}')
+          if 'object-fit: cover' not in leadership_css or 'max-width: none' not in leadership_css:
+              raise SystemExit('Leadership portraits do not share the required crop system.')
 
           for name in ('index.html', 'about.html'):
               html = (root / name).read_text(encoding='utf-8')
-              if 'assets/alessa-yang-portrait.svg' not in html:
-                  raise SystemExit(f'{name}: Alessa portrait was not injected.')
+              required_portraits = (
+                  'assets/alessa-yang-final.jpg',
+                  'team-photo-zen',
+                  'team-photo-milos',
+              )
+              for marker in required_portraits:
+                  if marker not in html:
+                      raise SystemExit(f'{name}: missing leadership portrait marker {marker}')
               if '>AY<' in html or 'Portrait placeholder' in html:
                   raise SystemExit(f'{name}: obsolete Alessa fallback remains.')
 
@@ -141,7 +148,7 @@ jobs:
           if 'Singapore Founders Programme' not in market:
               raise SystemExit('Market strategy missing.')
 
-          print('Validated eight pages and the embedded Alessa portrait payload.')
+          print('Validated eight pages and the coherent leadership portrait system.')
           PY
 
   deploy:
@@ -174,7 +181,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify live site and Alessa portrait
+      - name: Verify live site and leadership portraits
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         shell: bash
@@ -195,27 +202,32 @@ jobs:
 
             if [ "$ready" = true ] \
               && curl --fail --silent --show-error --location --retry 2 \
-                --output /tmp/alessa-yang.svg "${base}assets/alessa-yang-portrait.svg"; then
+                --output /tmp/alessa-yang.jpg "${base}assets/alessa-yang-final.jpg" \
+              && curl --fail --silent --show-error --location --retry 2 \
+                --output /tmp/leadership.css "${base}leadership.css"; then
               if python3 - <<'PY'
-          import base64
-          import re
           from pathlib import Path
 
-          svg = Path('/tmp/alessa-yang.svg').read_text(encoding='utf-8')
-          match = re.search(r'data:image/jpeg;base64,([^"\s]+)', svg)
-          assert match
-          jpeg = base64.b64decode(match.group(1), validate=True)
-          assert len(jpeg) > 10000
-          assert jpeg[:3] == b'\xff\xd8\xff'
-          assert jpeg[-2:] == b'\xff\xd9'
+          data = Path('/tmp/alessa-yang.jpg').read_bytes()
+          assert len(data) > 10000
+          assert data[:3] == b'\xff\xd8\xff'
+          assert data[-2:] == b'\xff\xd9'
+
+          css = Path('/tmp/leadership.css').read_text(encoding='utf-8')
+          for selector in ('.team-photo-alessa', '.team-photo-zen', '.team-photo-milos'):
+              assert selector in css
+          assert 'object-fit: cover' in css
+
           for page in ('/tmp/index.html', '/tmp/about.html'):
               html = Path(page).read_text(encoding='utf-8')
-              assert 'assets/alessa-yang-portrait.svg' in html
+              assert 'assets/alessa-yang-final.jpg' in html
+              assert 'team-photo-zen' in html
+              assert 'team-photo-milos' in html
               assert '>AY<' not in html
               assert 'Portrait placeholder' not in html
           PY
               then
-                echo "Verified live WinVerse site and Alessa portrait at $base"
+                echo "Verified live WinVerse leadership portraits at $base"
                 exit 0
               fi
             fi
@@ -224,7 +236,7 @@ jobs:
             sleep 10
           done
 
-          echo "Live portrait verification failed."
+          echo "Live leadership portrait verification failed."
           exit 1
 
       - name: Publish deployment record
