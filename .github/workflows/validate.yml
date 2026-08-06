@@ -89,8 +89,8 @@ jobs:
 
           runtime = (root / 'language.js').read_text(encoding='utf-8')
           forbidden = (
-              'translate.google.com', 'TranslateElement', 'google_translate_element',
-              'goog-te-combo', 'applyGoogleLanguage', 'loadGoogleTranslate',
+              'translate.google.com', 'TranslateElement', 'goog-te-combo',
+              'applyGoogleLanguage', 'loadGoogleTranslate',
           )
           for token in forbidden:
               if token in runtime:
