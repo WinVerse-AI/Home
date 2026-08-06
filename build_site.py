@@ -90,8 +90,9 @@ def inject_alessa_portrait(path: Path) -> None:
     replacement = (
         '<div class="team-media team-media-alessa">'
         '<img class="team-photo team-photo-alessa" '
-        'src="assets/alessa-yang-v2.webp" width="900" height="1200" '
-        'loading="eager" decoding="async" alt="Portrait of Alessa Yang">'
+        'src="assets/alessa-yang.jpg" width="360" height="480" '
+        'loading="eager" decoding="async" fetchpriority="high" '
+        'alt="Portrait of Alessa Yang">'
         '</div>'
     )
     html, count = pattern.subn(replacement, html, count=1)
