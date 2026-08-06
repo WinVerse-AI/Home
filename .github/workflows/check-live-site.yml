@@ -1,0 +1,45 @@
+name: Check live WinVerse site
+
+on:
+  push:
+    branches: ["diagnostic-pages"]
+    paths:
+      - ".github/workflows/check-live-site.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Capture live site state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/live
+          base="https://winverse-ai.github.io/Home/"
+          for asset in version.json index.html language.js translate-cleanup.js translate-cleanup.css; do
+            code="$(curl -L -sS -o "/tmp/live/${asset//\//_}" -w '%{http_code}' "${base}${asset}" || true)"
+            printf '%s %s\n' "$asset" "$code" >> /tmp/live/http-status.txt
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('/tmp/live')
+          result = {
+              'http': root.joinpath('http-status.txt').read_text(),
+              'version': root.joinpath('version.json').read_text(errors='replace') if root.joinpath('version.json').exists() else None,
+              'index_has_cleanup': 'translate-cleanup.js' in root.joinpath('index.html').read_text(errors='replace') if root.joinpath('index.html').exists() else False,
+              'language_has_google': 'translate.google.com/translate_a/element.js' in root.joinpath('language.js').read_text(errors='replace') if root.joinpath('language.js').exists() else False,
+              'language_size': root.joinpath('language.js').stat().st_size if root.joinpath('language.js').exists() else 0,
+          }
+          Path('live-site-diagnostic.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add live-site-diagnostic.json
+          git commit -m "Capture live WinVerse site state" || true
+          git push origin HEAD:diagnostic-pages
