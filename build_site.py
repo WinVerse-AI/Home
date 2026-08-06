@@ -88,12 +88,10 @@ def inject_alessa_portrait(path: Path) -> None:
         r'</div>'
     )
     replacement = (
-        '<div class="team-media">'
-        '<span class="team-initials" aria-hidden="true">AY</span>'
+        '<div class="team-media team-media-alessa">'
         '<img class="team-photo team-photo-alessa" '
-        'src="assets/alessa-yang.webp" width="900" height="1200" '
-        'loading="lazy" decoding="async" alt="Portrait of Alessa Yang" '
-        'onerror="this.hidden=true;this.parentElement.classList.add(\'image-failed\')">'
+        'src="assets/alessa-yang-v2.webp" width="900" height="1200" '
+        'loading="eager" decoding="async" alt="Portrait of Alessa Yang">'
         '</div>'
     )
     html, count = pattern.subn(replacement, html, count=1)
