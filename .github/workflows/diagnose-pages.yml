@@ -1,0 +1,94 @@
+name: Diagnose Pages workflow
+
+on:
+  push:
+    branches: ["diagnostic-pages"]
+    paths:
+      - ".github/workflows/diagnose-pages.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Capture current Pages workflow state
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const response = await github.rest.actions.listWorkflowRunsForRepo({
+              owner,
+              repo,
+              per_page: 30
+            });
+            const pagesRuns = response.data.workflow_runs
+              .filter((run) => run.name === 'Validate and deploy Pages')
+              .slice(0, 8);
+
+            const detailed = [];
+            for (const run of pagesRuns) {
+              const jobs = await github.paginate(
+                github.rest.actions.listJobsForWorkflowRun,
+                { owner, repo, run_id: run.id, per_page: 100 }
+              );
+              detailed.push({
+                id: run.id,
+                head_sha: run.head_sha,
+                event: run.event,
+                status: run.status,
+                conclusion: run.conclusion,
+                html_url: run.html_url,
+                created_at: run.created_at,
+                updated_at: run.updated_at,
+                run_started_at: run.run_started_at,
+                jobs: jobs.map((job) => ({
+                  id: job.id,
+                  name: job.name,
+                  status: job.status,
+                  conclusion: job.conclusion,
+                  started_at: job.started_at,
+                  completed_at: job.completed_at,
+                  html_url: job.html_url,
+                  steps: (job.steps || []).map((step) => ({
+                    name: step.name,
+                    status: step.status,
+                    conclusion: step.conclusion,
+                    number: step.number
+                  }))
+                }))
+              });
+            }
+
+            const payload = JSON.stringify({
+              captured_at: new Date().toISOString(),
+              pages_runs: detailed
+            }, null, 2) + '\n';
+
+            let sha;
+            try {
+              const existing = await github.rest.repos.getContent({
+                owner,
+                repo,
+                path: 'pages-diagnostics.json',
+                ref: 'diagnostic-pages'
+              });
+              sha = existing.data.sha;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+
+            await github.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo,
+              path: 'pages-diagnostics.json',
+              branch: 'diagnostic-pages',
+              message: 'Record current Pages workflow diagnostics',
+              content: Buffer.from(payload).toString('base64'),
+              ...(sha ? { sha } : {})
+            });
