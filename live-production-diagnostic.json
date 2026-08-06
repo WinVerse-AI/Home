@@ -1,0 +1,7 @@
+{
+  "http": "version.json 200\nindex.html 200\nlanguage.js 200\ntranslations/generated/zh-CN.json 404\ntranslations/generated/fr.json 404\n",
+  "version": "{\"commit_sha\":\"c3aec2b24e25fef5159b3c64566e849c4bdcee7a\",\"run_id\":\"31106973313\"}\n",
+  "index_has_versioned_language": false,
+  "language_has_local_dictionary": false,
+  "language_has_google_loader": true
+}
