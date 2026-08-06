@@ -90,7 +90,7 @@ def inject_alessa_portrait(path: Path) -> None:
     replacement = (
         '<div class="team-media team-media-alessa">'
         '<img class="team-photo team-photo-alessa" '
-        'src="assets/alessa-yang.jpg" width="360" height="480" '
+        'src="assets/alessa-yang-portrait.svg" width="480" height="640" '
         'loading="eager" decoding="async" fetchpriority="high" '
         'alt="Portrait of Alessa Yang">'
         '</div>'
