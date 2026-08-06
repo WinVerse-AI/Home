@@ -35,6 +35,7 @@ jobs:
             styles.css
             visuals.css
             pages.css
+            evidence-review.css
             script.js
             assets/winverse-logo.webp
             assets/zen-koh.webp
@@ -77,8 +78,11 @@ jobs:
                   self.images = []
                   self.scripts = []
                   self.styles = []
+                  self.ids = set()
               def handle_starttag(self, tag, attrs):
                   values = dict(attrs)
+                  if values.get('id'):
+                      self.ids.add(values['id'])
                   if tag == 'a' and values.get('href'):
                       self.links.append(values['href'])
                   elif tag == 'img':
@@ -98,7 +102,11 @@ jobs:
                   raise SystemExit(f'{page}: incomplete page navigation: {local_nav}')
 
               for href in audit.links:
-                  if href.startswith(('#','mailto:','tel:','http://','https://')):
+                  if href.startswith('#'):
+                      if href[1:] and href[1:] not in audit.ids:
+                          raise SystemExit(f'{page}: broken page anchor {href}')
+                      continue
+                  if href.startswith(('mailto:','tel:','http://','https://')):
                       continue
                   target = urlsplit(href).path
                   if target and not Path(target).exists():
@@ -118,6 +126,19 @@ jobs:
                   if not Path(src).exists():
                       raise SystemExit(f'{page}: missing image {src}')
 
+          evidence = Path('evidence.html').read_text(encoding='utf-8')
+          required_evidence = [
+              'Promising experiment. Unproven treatment.',
+              'NCT06261177',
+              'NCT07629050',
+              'reference-list',
+              'evidence-review.css',
+              'Build the measurement system before scaling the treatment story.'
+          ]
+          missing = [item for item in required_evidence if item not in evidence]
+          if missing:
+              raise SystemExit(f'Evidence review incomplete: {missing}')
+
           for path in [
               Path('assets/winverse-logo.webp'), Path('assets/zen-koh.webp'),
               Path('assets/serotonix-colourways.webp'),
@@ -128,7 +149,7 @@ jobs:
               if data[:4] != b'RIFF' or data[8:12] != b'WEBP':
                   raise SystemExit(f'Invalid WebP: {path}')
 
-          print('Validated seven pages, navigation, local assets and WebP payloads.')
+          print('Validated seven pages, cited evidence review, navigation and local assets.')
           PY
 
   deploy:
@@ -179,10 +200,13 @@ jobs:
               && grep -q 'A venture built around disciplined claims' /tmp/overview.html \
               && grep -q 'One product system' /tmp/platform.html \
               && grep -q 'Progress is measured by resolved risk' /tmp/development.html \
-              && grep -q 'Evidence must follow the exact product' /tmp/evidence.html \
+              && grep -q 'Promising experiment. Unproven treatment.' /tmp/evidence.html \
+              && grep -q 'NCT07629050' /tmp/evidence.html \
+              && grep -q 'evidence-review.css' /tmp/evidence.html \
               && grep -q 'A small team with explicit accountability' /tmp/about.html \
-              && grep -q 'winverse.ai@gmail.com' /tmp/contact.html; then
-              echo "Verified WinVerse multipage site at $base"
+              && grep -q 'winverse.ai@gmail.com' /tmp/contact.html \
+              && curl --fail --silent --show-error --location --output /dev/null "${base}evidence-review.css"; then
+              echo "Verified WinVerse cited evidence review at $base"
               exit 0
             fi
             echo "Live site not ready; attempt ${attempt}/12"
