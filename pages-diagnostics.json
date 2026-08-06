@@ -1,0 +1,926 @@
+{
+  "captured_at": "2026-08-06T13:55:11.418Z",
+  "pages_runs": [
+    {
+      "id": 31106973313,
+      "head_sha": "c3aec2b24e25fef5159b3c64566e849c4bdcee7a",
+      "event": "push",
+      "status": "in_progress",
+      "conclusion": null,
+      "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31106973313",
+      "created_at": "2026-08-06T13:39:41Z",
+      "updated_at": "2026-08-06T13:39:59Z",
+      "run_started_at": "2026-08-06T13:39:41Z",
+      "jobs": [
+        {
+          "id": 92634555153,
+          "name": "build",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T13:39:48Z",
+          "completed_at": "2026-08-06T13:39:55Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31106973313/job/92634555153",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Validate sources and build site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Configure GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Upload Pages artifact",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            }
+          ]
+        },
+        {
+          "id": 92634616865,
+          "name": "deploy",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T13:39:59Z",
+          "completed_at": "2026-08-06T13:55:07Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31106973313/job/92634616865",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Submit Pages deployment without the ten-minute cancellation ceiling",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Verify exact multilingual build on the public site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Publish deployment record",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 31105089550,
+      "head_sha": "9a67cec35b7d0df9203a5c766cbdea97b1235488",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31105089550",
+      "created_at": "2026-08-06T13:15:42Z",
+      "updated_at": "2026-08-06T13:26:16Z",
+      "run_started_at": "2026-08-06T13:15:42Z",
+      "jobs": [
+        {
+          "id": 92628062675,
+          "name": "validate",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T13:15:57Z",
+          "completed_at": "2026-08-06T13:16:02Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31105089550/job/92628062675",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build and validate site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            }
+          ]
+        },
+        {
+          "id": 92628123348,
+          "name": "deploy",
+          "status": "completed",
+          "conclusion": "failure",
+          "started_at": "2026-08-06T13:16:06Z",
+          "completed_at": "2026-08-06T13:26:16Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31105089550/job/92628123348",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build production site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Configure GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Upload Pages artifact",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Deploy to GitHub Pages",
+              "status": "completed",
+              "conclusion": "failure",
+              "number": 6
+            },
+            {
+              "name": "Verify live site and language controls",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 7
+            },
+            {
+              "name": "Publish deployment record",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 31104352948,
+      "head_sha": "0bb23fb49319ed03486f49da20b927cfa8297b08",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31104352948",
+      "created_at": "2026-08-06T13:06:07Z",
+      "updated_at": "2026-08-06T13:15:49Z",
+      "run_started_at": "2026-08-06T13:06:07Z",
+      "jobs": [
+        {
+          "id": 92625548860,
+          "name": "validate",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T13:06:16Z",
+          "completed_at": "2026-08-06T13:06:20Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31104352948/job/92625548860",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build and validate site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            }
+          ]
+        },
+        {
+          "id": 92625604860,
+          "name": "deploy",
+          "status": "completed",
+          "conclusion": "cancelled",
+          "started_at": "2026-08-06T13:06:24Z",
+          "completed_at": "2026-08-06T13:15:48Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31104352948/job/92625604860",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build production site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Configure GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Upload Pages artifact",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Deploy to GitHub Pages",
+              "status": "completed",
+              "conclusion": "cancelled",
+              "number": 6
+            },
+            {
+              "name": "Verify live site and language controls",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 7
+            },
+            {
+              "name": "Publish deployment record",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 31102736315,
+      "head_sha": "f33dfb30420b946d54d92e94e54b11494b1fd2f4",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31102736315",
+      "created_at": "2026-08-06T12:44:59Z",
+      "updated_at": "2026-08-06T12:55:19Z",
+      "run_started_at": "2026-08-06T12:44:59Z",
+      "jobs": [
+        {
+          "id": 92620095628,
+          "name": "validate",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T12:45:01Z",
+          "completed_at": "2026-08-06T12:45:06Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31102736315/job/92620095628",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build and validate site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            }
+          ]
+        },
+        {
+          "id": 92620123973,
+          "name": "deploy",
+          "status": "completed",
+          "conclusion": "failure",
+          "started_at": "2026-08-06T12:45:10Z",
+          "completed_at": "2026-08-06T12:55:18Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31102736315/job/92620123973",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build production site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Configure GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Upload Pages artifact",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Deploy to GitHub Pages",
+              "status": "completed",
+              "conclusion": "failure",
+              "number": 6
+            },
+            {
+              "name": "Verify live site",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 7
+            },
+            {
+              "name": "Publish deployment record",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 31085551958,
+      "head_sha": "ef4861d55a8b7bf8ef4c95e574056e285e63a8b8",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31085551958",
+      "created_at": "2026-08-06T08:35:50Z",
+      "updated_at": "2026-08-06T08:41:06Z",
+      "run_started_at": "2026-08-06T08:35:50Z",
+      "jobs": [
+        {
+          "id": 92564024236,
+          "name": "validate",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T08:35:52Z",
+          "completed_at": "2026-08-06T08:35:57Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31085551958/job/92564024236",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build and validate site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            }
+          ]
+        },
+        {
+          "id": 92564051222,
+          "name": "deploy",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T08:36:01Z",
+          "completed_at": "2026-08-06T08:41:05Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31085551958/job/92564051222",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build production site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Configure GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Upload Pages artifact",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Deploy to GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Verify live site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Publish deployment record",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 31085097192,
+      "head_sha": "7d30c537d6f1c9cae8ed3496156d874095b249f4",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31085097192",
+      "created_at": "2026-08-06T08:29:22Z",
+      "updated_at": "2026-08-06T08:34:23Z",
+      "run_started_at": "2026-08-06T08:29:22Z",
+      "jobs": [
+        {
+          "id": 92562579813,
+          "name": "validate",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T08:29:25Z",
+          "completed_at": "2026-08-06T08:29:29Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31085097192/job/92562579813",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build and validate site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            }
+          ]
+        },
+        {
+          "id": 92562603727,
+          "name": "deploy",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T08:29:33Z",
+          "completed_at": "2026-08-06T08:34:22Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31085097192/job/92562603727",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build production site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Configure GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Upload Pages artifact",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Deploy to GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Verify live site, strategic pillars and exact portrait bytes",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Publish deployment record",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 31083229433,
+      "head_sha": "ee14bc611b8f6c820c5eebdaf1d6a1ee5d9d7367",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31083229433",
+      "created_at": "2026-08-06T08:01:58Z",
+      "updated_at": "2026-08-06T08:02:07Z",
+      "run_started_at": "2026-08-06T08:01:58Z",
+      "jobs": [
+        {
+          "id": 92556641698,
+          "name": "validate",
+          "status": "completed",
+          "conclusion": "failure",
+          "started_at": "2026-08-06T08:02:01Z",
+          "completed_at": "2026-08-06T08:02:07Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31083229433/job/92556641698",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build and validate site",
+              "status": "completed",
+              "conclusion": "failure",
+              "number": 3
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            }
+          ]
+        },
+        {
+          "id": 92556673437,
+          "name": "deploy",
+          "status": "completed",
+          "conclusion": "skipped",
+          "started_at": "2026-08-06T08:02:07Z",
+          "completed_at": "2026-08-06T08:02:07Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31083229433/job/92556673437",
+          "steps": []
+        }
+      ]
+    },
+    {
+      "id": 31080631564,
+      "head_sha": "b7f63589a6be1520848922ed14cca02b08718058",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31080631564",
+      "created_at": "2026-08-06T07:21:54Z",
+      "updated_at": "2026-08-06T07:22:38Z",
+      "run_started_at": "2026-08-06T07:21:54Z",
+      "jobs": [
+        {
+          "id": 92548398628,
+          "name": "validate",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T07:21:59Z",
+          "completed_at": "2026-08-06T07:22:05Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31080631564/job/92548398628",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build and validate site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            }
+          ]
+        },
+        {
+          "id": 92548431123,
+          "name": "deploy",
+          "status": "completed",
+          "conclusion": "success",
+          "started_at": "2026-08-06T07:22:09Z",
+          "completed_at": "2026-08-06T07:22:37Z",
+          "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31080631564/job/92548431123",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Build production site",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Configure GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Upload Pages artifact",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Deploy to GitHub Pages",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Verify live site, strategic pillars and exact portrait bytes",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Publish deployment record",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Post Checkout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
