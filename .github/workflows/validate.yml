@@ -1,0 +1,124 @@
+name: Validate site
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate local multilingual build
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            index.html overview.html platform.html development.html
+            evidence.html market.html about.html contact.html
+            commercial-beachhead.html differentiation.html expansion-engine.html
+            language.css language.js script.js build_site.py
+            translations/generated/zh-CN.json translations/generated/ja.json
+            translations/generated/fr.json translations/generated/de.json
+            translations/generated/es.json translations/generated/report.json
+          )
+          for file in "${required[@]}"; do
+            test -s "$file" || { echo "Missing file: $file"; exit 1; }
+          done
+          test ! -e translate-cleanup.js
+          test ! -e translate-cleanup.css
+          node --check language.js
+          node --check script.js
+          python3 -m py_compile build_site.py
+          python3 build_site.py
+
+          python3 <<'PY'
+          import json
+          from html.parser import HTMLParser
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          root = Path('dist')
+          pages = (
+              'index.html', 'overview.html', 'platform.html', 'development.html',
+              'evidence.html', 'market.html', 'about.html', 'contact.html',
+              'commercial-beachhead.html', 'differentiation.html', 'expansion-engine.html',
+          )
+          nav = {
+              'overview.html', 'platform.html', 'development.html', 'evidence.html',
+              'market.html', 'about.html', 'contact.html',
+          }
+
+          class Audit(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.links = []
+                  self.assets = []
+              def handle_starttag(self, tag, attrs):
+                  values = dict(attrs)
+                  if tag == 'a' and values.get('href'):
+                      self.links.append(values['href'])
+                  if tag == 'script' and values.get('src'):
+                      self.assets.append(values['src'])
+                  if tag == 'link' and values.get('href'):
+                      self.assets.append(values['href'])
+                  if tag == 'img' and values.get('src'):
+                      self.assets.append(values['src'])
+
+          for name in pages:
+              path = root / name
+              html = path.read_text(encoding='utf-8')
+              if 'translate.google.com' in html or 'translate-cleanup' in html:
+                  raise SystemExit(f'{name}: obsolete Google translation code remains')
+              audit = Audit()
+              audit.feed(html)
+              present_nav = {urlsplit(link).path for link in audit.links if urlsplit(link).path in nav}
+              if present_nav != nav:
+                  raise SystemExit(f'{name}: incomplete navigation')
+              for asset in audit.assets:
+                  if asset.startswith(('http://', 'https://', 'data:')):
+                      continue
+                  target = urlsplit(asset).path
+                  if target and not (root / target).exists():
+                      raise SystemExit(f'{name}: missing asset {asset}')
+
+          runtime = (root / 'language.js').read_text(encoding='utf-8')
+          forbidden = (
+              'translate.google.com', 'TranslateElement', 'google_translate_element',
+              'goog-te-combo', 'applyGoogleLanguage', 'loadGoogleTranslate',
+          )
+          for token in forbidden:
+              if token in runtime:
+                  raise SystemExit(f'Google runtime remains: {token}')
+          for token in ('loadDictionary', 'applyDictionary', 'translations/generated'):
+              if token not in runtime:
+                  raise SystemExit(f'Local runtime missing: {token}')
+
+          locales = ('zh-CN', 'ja', 'fr', 'de', 'es')
+          keys = None
+          for locale in locales:
+              payload = json.loads(
+                  (root / 'translations' / 'generated' / f'{locale}.json').read_text(encoding='utf-8')
+              )
+              strings = payload.get('strings', {})
+              if payload.get('locale') != locale or payload.get('source') != 'en':
+                  raise SystemExit(f'{locale}: invalid metadata')
+              if len(strings) < 700:
+                  raise SystemExit(f'{locale}: incomplete dictionary ({len(strings)})')
+              if keys is None:
+                  keys = set(strings)
+              elif set(strings) != keys:
+                  raise SystemExit(f'{locale}: key mismatch')
+              changed = sum(1 for key, value in strings.items() if value and value != key)
+              if changed < len(strings) * 0.45:
+                  raise SystemExit(f'{locale}: insufficient translations')
+              if strings.get('Overview') in (None, '', 'Overview'):
+                  raise SystemExit(f'{locale}: navigation smoke test failed')
+
+          print('Local multilingual site validation passed.')
+          PY
