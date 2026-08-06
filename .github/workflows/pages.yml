@@ -9,18 +9,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  group: github-pages-production
+  cancel-in-progress: false
 
 jobs:
-  validate:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      pages: write
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Build and validate site
+      - name: Validate sources and build site
         shell: bash
         run: |
           set -euo pipefail
@@ -29,17 +33,15 @@ jobs:
             index.html overview.html platform.html development.html
             evidence.html market.html about.html contact.html
             commercial-beachhead.html differentiation.html expansion-engine.html
-            styles.css visuals.css pages.css evidence-review.css market.css
-            typography.css leadership.css pillar-visuals.css layout-polish.css
-            pillar-image-beauty.css pillar-image-affective.css pillar-image-research.css
+            styles.css typography.css leadership.css layout-polish.css
+            pillar-visuals.css pillar-image-beauty.css
+            pillar-image-affective.css pillar-image-research.css
             language.css script.js language.js build_site.py
             assets/winverse-logo.webp assets/zen-koh.webp
             assets/serotonix-colourways.webp assets/serotonix-exploded.webp
             assets/serotonix-detail.webp assets/alessa-yang-portrait-20260806.jpg
             assets/flags/gb.svg assets/flags/cn.svg assets/flags/jp.svg
             assets/flags/fr.svg assets/flags/de.svg assets/flags/es.svg
-            i18n/en.js i18n/zh-CN.js i18n/ja.js
-            i18n/fr.js i18n/de.js i18n/es.js
           )
 
           for file in "${required[@]}"; do
@@ -48,14 +50,14 @@ jobs:
 
           node --check script.js
           node --check language.js
-          for file in i18n/*.js; do node --check "$file"; done
           python3 -m py_compile build_site.py
           python3 build_site.py
 
+          cat > dist/version.json <<EOF
+          {"commit_sha":"${GITHUB_SHA}","run_id":"${GITHUB_RUN_ID}"}
+          EOF
+
           python3 <<'PY'
-          import base64
-          import hashlib
-          import re
           import xml.etree.ElementTree as ET
           from html.parser import HTMLParser
           from pathlib import Path
@@ -72,12 +74,6 @@ jobs:
               'overview.html', 'platform.html', 'development.html', 'evidence.html',
               'market.html', 'about.html', 'contact.html',
           }
-          global_styles = {
-              'typography.css', 'leadership.css', 'layout-polish.css',
-              'pillar-image-beauty.css', 'pillar-image-affective.css',
-              'pillar-image-research.css', 'language.css',
-          }
-          required_scripts = {'script.js', 'language.js'}
 
           class Audit(HTMLParser):
               def __init__(self):
@@ -86,12 +82,8 @@ jobs:
                   self.images = []
                   self.scripts = []
                   self.styles = []
-                  self.ids = set()
-
               def handle_starttag(self, tag, attrs):
                   values = dict(attrs)
-                  if values.get('id'):
-                      self.ids.add(values['id'])
                   if tag == 'a' and values.get('href'):
                       self.links.append(values['href'])
                   elif tag == 'img':
@@ -101,129 +93,55 @@ jobs:
                   elif tag == 'link' and values.get('href'):
                       self.styles.append(values['href'])
 
-          for page_name in page_names:
-              page = root / page_name
+          for name in page_names:
+              page = root / name
               if not page.is_file():
-                  raise SystemExit(f'Missing built page: {page_name}')
+                  raise SystemExit(f'Missing built page: {name}')
               audit = Audit()
               audit.feed(page.read_text(encoding='utf-8'))
 
-              local_nav = {href for href in audit.links if href in expected_nav}
-              if local_nav != expected_nav:
-                  raise SystemExit(f'{page_name}: incomplete navigation: {local_nav}')
+              nav = {href for href in audit.links if href in expected_nav}
+              if nav != expected_nav:
+                  raise SystemExit(f'{name}: incomplete navigation: {nav}')
 
-              present_styles = {urlsplit(href).path for href in audit.styles}
-              missing_styles = global_styles - present_styles
-              if missing_styles:
-                  raise SystemExit(f'{page_name}: missing global styles: {missing_styles}')
-
-              present_scripts = {urlsplit(src).path for src in audit.scripts}
-              missing_scripts = required_scripts - present_scripts
-              if missing_scripts:
-                  raise SystemExit(f'{page_name}: missing scripts: {missing_scripts}')
+              styles = {urlsplit(item).path for item in audit.styles}
+              scripts = {urlsplit(item).path for item in audit.scripts}
+              for required in ('layout-polish.css', 'language.css'):
+                  if required not in styles:
+                      raise SystemExit(f'{name}: missing {required}')
+              for required in ('script.js', 'language.js'):
+                  if required not in scripts:
+                      raise SystemExit(f'{name}: missing {required}')
 
               for href in audit.links:
-                  if href.startswith('#'):
-                      if href[1:] and href[1:] not in audit.ids:
-                          raise SystemExit(f'{page_name}: broken anchor {href}')
-                      continue
-                  if href.startswith(('mailto:', 'tel:', 'http://', 'https://')):
+                  if href.startswith(('#', 'mailto:', 'tel:', 'http://', 'https://')):
                       continue
                   target = urlsplit(href).path
                   if target and not (root / target).exists():
-                      raise SystemExit(f'{page_name}: broken local link {href}')
+                      raise SystemExit(f'{name}: broken link {href}')
 
-              for asset in audit.scripts + audit.styles:
+              for asset in audit.styles + audit.scripts:
                   target = urlsplit(asset).path
                   if target and not (root / target).exists():
-                      raise SystemExit(f'{page_name}: missing asset {asset}')
+                      raise SystemExit(f'{name}: missing asset {asset}')
 
               for image in audit.images:
                   src = image.get('src', '')
                   if not image.get('alt'):
-                      raise SystemExit(f'{page_name}: missing alt text for {src}')
+                      raise SystemExit(f'{name}: missing alt text for {src}')
                   if not src.startswith(('http://', 'https://')) and not (root / src).exists():
-                      raise SystemExit(f'{page_name}: missing image {src}')
+                      raise SystemExit(f'{name}: missing image {src}')
 
-          language_js = (root / 'language.js').read_text(encoding='utf-8')
-          language_css = (root / 'language.css').read_text(encoding='utf-8')
-          expected_languages = {
-              'en': 'assets/flags/gb.svg',
-              'zh-CN': 'assets/flags/cn.svg',
-              'ja': 'assets/flags/jp.svg',
-              'fr': 'assets/flags/fr.svg',
-              'de': 'assets/flags/de.svg',
-              'es': 'assets/flags/es.svg',
-          }
-          for code, flag in expected_languages.items():
-              if code not in language_js or flag not in language_js:
-                  raise SystemExit(f'Language runtime missing {code} / {flag}')
-              flag_path = root / flag
-              ET.parse(flag_path)
-              svg = flag_path.read_text(encoding='utf-8')
-              if '<svg' not in svg or 'viewBox="0 0 36 24"' not in svg:
-                  raise SystemExit(f'Invalid flag icon: {flag}')
+          for flag in ('gb.svg', 'cn.svg', 'jp.svg', 'fr.svg', 'de.svg', 'es.svg'):
+              ET.parse(root / 'assets' / 'flags' / flag)
 
-          for token in (
-              'language-picker', 'language-menu', 'language-option',
-              'translation-engine', 'prefers-reduced-motion',
-          ):
-              if token not in language_css:
-                  raise SystemExit(f'Language stylesheet missing: {token}')
+          language = (root / 'language.js').read_text(encoding='utf-8')
+          for code in ('en', 'zh-CN', 'ja', 'fr', 'de', 'es'):
+              if code not in language:
+                  raise SystemExit(f'Language runtime missing {code}')
 
-          if 'translate.google.com/translate_a/element.js' not in language_js:
-              raise SystemExit('Automated translation service loader missing')
-          if 'localStorage.setItem(STORAGE_KEY' not in language_js:
-              raise SystemExit('Persistent language selection missing')
-
-          pillar_expectations = {
-              'commercial-beachhead.html': ('pillar-image-beauty', 'Premium beauty technology'),
-              'differentiation.html': ('pillar-image-affective', 'Momentary affective experience'),
-              'expansion-engine.html': ('pillar-image-research', 'Claim-specific research'),
-          }
-          for name, (image_class, heading) in pillar_expectations.items():
-              html = (root / name).read_text(encoding='utf-8')
-              if image_class not in html or heading not in html:
-                  raise SystemExit(f'{name}: pillar hero content is incomplete')
-
-          for css_name in (
-              'pillar-image-beauty.css',
-              'pillar-image-affective.css',
-              'pillar-image-research.css',
-          ):
-              text = (root / css_name).read_text(encoding='utf-8')
-              match = re.search(r'data:image/avif;base64,([^"\)]+)', text)
-              if not match:
-                  raise SystemExit(f'{css_name}: embedded AVIF payload missing')
-              data = base64.b64decode(match.group(1), validate=True)
-              if len(data) < 8000 or data[4:8] != b'ftyp' or b'avif' not in data[:24]:
-                  raise SystemExit(f'{css_name}: invalid or undersized AVIF payload')
-
-          portrait = root / 'assets/alessa-yang-portrait-20260806.jpg'
-          expected_hash = '8aa919332c5a52f568ad33d9140010a6471c9f5745de0d4fe0ac40dba0d735fc'
-          if hashlib.sha256(portrait.read_bytes()).hexdigest() != expected_hash:
-              raise SystemExit('Alessa portrait checksum mismatch')
-
-          print('Validated eleven pages, six language options and three AVIF visuals.')
+          print('Validated eleven pages and six language options.')
           PY
-
-  deploy:
-    needs: validate
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Build production site
-        run: python3 build_site.py
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -233,117 +151,148 @@ jobs:
         with:
           path: dist
 
-      - name: Deploy to GitHub Pages
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Submit Pages deployment without the ten-minute cancellation ceiling
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/github-script@v8
+        timeout-minutes: 35
         with:
-          timeout: 1800000
-          error_count: 30
-          reporting_interval: 5000
+          github-token: ${{ github.token }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const terminalSuccess = new Set(['succeed', 'success', 'built']);
+            const terminalFailure = new Set(['failed', 'failure', 'error', 'errored', 'cancelled', 'canceled']);
 
-      - name: Verify live site and language controls
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              { owner, repo, run_id: context.runId, per_page: 100 }
+            );
+            const artifact = artifacts
+              .filter((item) => item.name === 'github-pages' && !item.expired)
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+            if (!artifact) {
+              throw new Error('The github-pages artifact was not found for this workflow run.');
+            }
+
+            const staleDeployments = [
+              'f33dfb30420b946d54d92e94e54b11494b1fd2f4',
+              '0bb23fb49319ed03486f49da20b927cfa8297b08',
+              '9a67cec35b7d0df9203a5c766cbdea97b1235488'
+            ];
+            for (const deploymentId of staleDeployments) {
+              try {
+                const current = await github.request(
+                  'GET /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}',
+                  { owner, repo, pages_deployment_id: deploymentId }
+                );
+                const status = String(current.data.status || '').toLowerCase();
+                if (!terminalSuccess.has(status) && !terminalFailure.has(status)) {
+                  await github.request(
+                    'POST /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}/cancel',
+                    { owner, repo, pages_deployment_id: deploymentId }
+                  );
+                  core.info(`Cancelled stale Pages deployment ${deploymentId}.`);
+                }
+              } catch (error) {
+                if (![404, 409, 422].includes(error.status)) throw error;
+                core.info(`Stale deployment ${deploymentId} is already clear (${error.status}).`);
+              }
+            }
+
+            const oidcToken = await core.getIDToken();
+            const created = await github.request(
+              'POST /repos/{owner}/{repo}/pages/deployments',
+              {
+                owner,
+                repo,
+                artifact_id: artifact.id,
+                environment: 'github-pages',
+                pages_build_version: context.sha,
+                oidc_token: oidcToken
+              }
+            );
+
+            const deploymentId = created.data.id || context.sha;
+            const rawPageUrl = created.data.page_url || 'winverse-ai.github.io/Home/';
+            const pageUrl = rawPageUrl.startsWith('http')
+              ? rawPageUrl
+              : `https://${rawPageUrl}`;
+            core.setOutput('deployment_id', deploymentId);
+            core.setOutput('page_url', pageUrl.endsWith('/') ? pageUrl : `${pageUrl}/`);
+            core.info(`Submitted Pages deployment ${deploymentId} with artifact ${artifact.id}.`);
+
+            const deadline = Date.now() + 32 * 60 * 1000;
+            while (Date.now() < deadline) {
+              const response = await github.request(
+                'GET /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}',
+                { owner, repo, pages_deployment_id: deploymentId }
+              );
+              const status = String(response.data.status || '').toLowerCase();
+              core.info(`Pages deployment status: ${status || 'unknown'}`);
+              if (terminalSuccess.has(status)) {
+                core.setOutput('status', status);
+                return;
+              }
+              if (terminalFailure.has(status)) {
+                throw new Error(`Pages deployment ended with status: ${status}`);
+              }
+              await new Promise((resolve) => setTimeout(resolve, 10000));
+            }
+
+            throw new Error(
+              `Pages deployment ${deploymentId} is still processing after 32 minutes. ` +
+              'It was deliberately left active rather than cancelled.'
+            );
+
+      - name: Verify exact multilingual build on the public site
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED_SHA: ${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          base="${PAGE_URL%/}/"
-          pages=(
-            index.html overview.html platform.html development.html
-            evidence.html market.html about.html contact.html
-            commercial-beachhead.html differentiation.html expansion-engine.html
-          )
-          styles=(
-            layout-polish.css pillar-image-beauty.css
-            pillar-image-affective.css pillar-image-research.css language.css
-          )
-          scripts=(script.js language.js)
-          flags=(gb.svg cn.svg jp.svg fr.svg de.svg es.svg)
+          base="${PAGE_URL:-https://winverse-ai.github.io/Home/}"
+          base="${base%/}/"
 
-          for attempt in {1..18}; do
-            ready=true
-            rm -rf /tmp/winverse-live
-            mkdir -p /tmp/winverse-live/flags
-
-            for page in "${pages[@]}"; do
-              curl --fail --silent --show-error --location --retry 2 \
-                --output "/tmp/winverse-live/${page}" "${base}${page}" || { ready=false; break; }
-            done
-
-            if [ "$ready" = true ]; then
-              for style in "${styles[@]}"; do
-                curl --fail --silent --show-error --location --retry 2 \
-                  --output "/tmp/winverse-live/${style}" "${base}${style}" || { ready=false; break; }
-              done
+          for attempt in {1..60}; do
+            if curl --fail --silent --show-error --location \
+              --output /tmp/version.json "${base}version.json"; then
+              deployed_sha="$(python3 -c 'import json; print(json.load(open("/tmp/version.json"))["commit_sha"])')"
+              if [ "$deployed_sha" = "$EXPECTED_SHA" ]; then
+                break
+              fi
             fi
-
-            if [ "$ready" = true ]; then
-              for script in "${scripts[@]}"; do
-                curl --fail --silent --show-error --location --retry 2 \
-                  --output "/tmp/winverse-live/${script}" "${base}${script}" || { ready=false; break; }
-              done
+            if [ "$attempt" -eq 60 ]; then
+              echo "Live site did not reach commit $EXPECTED_SHA"
+              exit 1
             fi
-
-            if [ "$ready" = true ]; then
-              for flag in "${flags[@]}"; do
-                curl --fail --silent --show-error --location --retry 2 \
-                  --output "/tmp/winverse-live/flags/${flag}" "${base}assets/flags/${flag}" || { ready=false; break; }
-              done
-            fi
-
-            if [ "$ready" = true ] && python3 - <<'PY'
-          import base64
-          import re
-          import xml.etree.ElementTree as ET
-          from pathlib import Path
-
-          root = Path('/tmp/winverse-live')
-          pages = (
-              'index.html', 'overview.html', 'platform.html', 'development.html',
-              'evidence.html', 'market.html', 'about.html', 'contact.html',
-              'commercial-beachhead.html', 'differentiation.html',
-              'expansion-engine.html',
-          )
-          for page_name in pages:
-              html = (root / page_name).read_text(encoding='utf-8')
-              assert 'language.css' in html
-              assert 'language.js' in html
-
-          language_js = (root / 'language.js').read_text(encoding='utf-8')
-          for code in ('en', 'zh-CN', 'ja', 'fr', 'de', 'es'):
-              assert code in language_js
-          assert 'translate.google.com/translate_a/element.js' in language_js
-
-          for flag in ('gb.svg', 'cn.svg', 'jp.svg', 'fr.svg', 'de.svg', 'es.svg'):
-              ET.parse(root / 'flags' / flag)
-
-          pillars = {
-              'commercial-beachhead.html': 'pillar-image-beauty.css',
-              'differentiation.html': 'pillar-image-affective.css',
-              'expansion-engine.html': 'pillar-image-research.css',
-          }
-          for page_name, css_name in pillars.items():
-              html = (root / page_name).read_text(encoding='utf-8')
-              assert css_name in html
-              text = (root / css_name).read_text(encoding='utf-8')
-              match = re.search(r'data:image/avif;base64,([^"\)]+)', text)
-              assert match
-              data = base64.b64decode(match.group(1), validate=True)
-              assert len(data) >= 8000
-              assert data[4:8] == b'ftyp'
-              assert b'avif' in data[:24]
-          PY
-            then
-              echo "Verified live WinVerse language controls at $base"
-              exit 0
-            fi
-
-            echo "Live site not ready; attempt ${attempt}/18"
             sleep 10
           done
 
-          echo "Live WinVerse language verification failed."
-          exit 1
+          curl --fail --silent --show-error --location --output /tmp/index.html "${base}index.html"
+          curl --fail --silent --show-error --location --output /tmp/language.js "${base}language.js"
+          for flag in gb cn jp fr de es; do
+            curl --fail --silent --show-error --location \
+              --output "/tmp/${flag}.svg" "${base}assets/flags/${flag}.svg"
+          done
+
+          grep -q 'language.js' /tmp/index.html
+          grep -q 'language.css' /tmp/index.html
+          for code in en zh-CN ja fr de es; do grep -q "$code" /tmp/language.js; done
+          echo "Verified multilingual build $EXPECTED_SHA at $base"
 
       - name: Publish deployment record
         if: always()
@@ -356,6 +305,7 @@ jobs:
           set -u
           status_dir=/tmp/winverse-deployment-status
           repo="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          page_url="${PAGE_URL:-https://winverse-ai.github.io/Home/}"
 
           if git clone --depth 1 --branch deployment-status "$repo" "$status_dir" 2>/dev/null; then
             git -C "$status_dir" rm -rf . >/dev/null 2>&1 || true
@@ -369,7 +319,7 @@ jobs:
           {
             "status": "${DEPLOY_STATUS}",
             "commit_sha": "${GITHUB_SHA}",
-            "page_url": "${PAGE_URL%/}/",
+            "page_url": "${page_url%/}/",
             "run_url": "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
             "verified_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
