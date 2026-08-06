@@ -39,7 +39,7 @@ def hydrate_high_resolution_assets() -> None:
             raise RuntimeError(f"Missing encoded asset parts for {filename}")
         encoded = "".join(part.read_text(encoding="ascii").strip() for part in parts)
         data = base64.b64decode(encoded, validate=True)
-        if len(data) < 15000 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+        if len(data) < 30000 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
             raise RuntimeError(f"Invalid high-resolution WebP payload for {filename}")
         (target_dir / filename).write_bytes(data)
 
