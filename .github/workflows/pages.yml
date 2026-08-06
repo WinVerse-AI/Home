@@ -30,14 +30,12 @@ jobs:
             evidence.html market.html about.html contact.html
             commercial-beachhead.html differentiation.html expansion-engine.html
             styles.css visuals.css pages.css evidence-review.css market.css
-            typography.css leadership.css pillar-visuals.css script.js build_site.py
+            typography.css leadership.css pillar-visuals.css layout-polish.css
+            pillar-image-beauty.css pillar-image-affective.css pillar-image-research.css
+            script.js build_site.py
             assets/winverse-logo.webp assets/zen-koh.webp
             assets/serotonix-colourways.webp assets/serotonix-exploded.webp
-            assets/serotonix-detail.webp
-            assets/pillar-premium-beauty.webp
-            assets/pillar-affective-experience.webp
-            assets/pillar-claim-research.webp
-            assets/alessa-yang-portrait-20260806.jpg
+            assets/serotonix-detail.webp assets/alessa-yang-portrait-20260806.jpg
             i18n/en.js i18n/zh-CN.js i18n/ja.js
             i18n/fr.js i18n/de.js i18n/es.js
           )
@@ -52,22 +50,29 @@ jobs:
           python3 build_site.py
 
           python3 <<'PY'
+          import base64
           import hashlib
+          import re
           from html.parser import HTMLParser
           from pathlib import Path
           from urllib.parse import urlsplit
 
           root = Path('dist')
-          pages = [
-              root / 'index.html', root / 'overview.html', root / 'platform.html',
-              root / 'development.html', root / 'evidence.html', root / 'market.html',
-              root / 'about.html', root / 'contact.html',
-              root / 'commercial-beachhead.html', root / 'differentiation.html',
-              root / 'expansion-engine.html'
-          ]
+          page_names = (
+              'index.html', 'overview.html', 'platform.html', 'development.html',
+              'evidence.html', 'market.html', 'about.html', 'contact.html',
+              'commercial-beachhead.html', 'differentiation.html',
+              'expansion-engine.html',
+          )
+          pages = [root / name for name in page_names]
           expected_nav = {
               'overview.html', 'platform.html', 'development.html', 'evidence.html',
-              'market.html', 'about.html', 'contact.html'
+              'market.html', 'about.html', 'contact.html',
+          }
+          global_styles = {
+              'typography.css', 'leadership.css', 'layout-polish.css',
+              'pillar-image-beauty.css', 'pillar-image-affective.css',
+              'pillar-image-research.css',
           }
 
           class Audit(HTMLParser):
@@ -78,6 +83,7 @@ jobs:
                   self.scripts = []
                   self.styles = []
                   self.ids = set()
+
               def handle_starttag(self, tag, attrs):
                   values = dict(attrs)
                   if values.get('id'):
@@ -92,12 +98,23 @@ jobs:
                       self.styles.append(values['href'])
 
           for page in pages:
+              if not page.is_file():
+                  raise SystemExit(f'Missing built page: {page.name}')
               html = page.read_text(encoding='utf-8')
               audit = Audit()
               audit.feed(html)
+
               local_nav = {href for href in audit.links if href in expected_nav}
               if local_nav != expected_nav:
                   raise SystemExit(f'{page.name}: incomplete navigation: {local_nav}')
+
+              present_global_styles = {
+                  urlsplit(href).path for href in audit.styles
+                  if urlsplit(href).path in global_styles
+              }
+              if present_global_styles != global_styles:
+                  missing = global_styles - present_global_styles
+                  raise SystemExit(f'{page.name}: missing global styles: {missing}')
 
               for href in audit.links:
                   if href.startswith('#'):
@@ -124,55 +141,39 @@ jobs:
                   if not (root / src).exists():
                       raise SystemExit(f'{page.name}: missing image {src}')
 
-          pillar_pages = {
-              'commercial-beachhead.html': 'Premium beauty technology.',
-              'differentiation.html': 'Momentary affective experience.',
-              'expansion-engine.html': 'Claim-specific research.',
+          pillar_expectations = {
+              'commercial-beachhead.html': ('pillar-image-beauty', 'Premium beauty technology'),
+              'differentiation.html': ('pillar-image-affective', 'Momentary affective experience'),
+              'expansion-engine.html': ('pillar-image-research', 'Claim-specific research'),
           }
-          overview = (root / 'overview.html').read_text(encoding='utf-8')
-          for name, heading in pillar_pages.items():
-              if f'href="{name}"' not in overview:
-                  raise SystemExit(f'Overview missing pillar link: {name}')
-              if heading not in (root / name).read_text(encoding='utf-8'):
-                  raise SystemExit(f'{name}: missing expected pillar heading')
+          for name, (image_class, heading) in pillar_expectations.items():
+              html = (root / name).read_text(encoding='utf-8')
+              if image_class not in html or heading not in html:
+                  raise SystemExit(f'{name}: pillar hero content is incomplete')
 
-          pillar_css = (root / 'pillar-visuals.css').read_text(encoding='utf-8')
-          pillar_assets = (
-              'assets/pillar-premium-beauty.webp',
-              'assets/pillar-affective-experience.webp',
-              'assets/pillar-claim-research.webp',
-          )
-          for asset in pillar_assets:
-              if asset not in pillar_css:
-                  raise SystemExit(f'Pillar stylesheet missing asset reference: {asset}')
-              data = (root / asset).read_bytes()
-              if len(data) < 4000 or data[:4] != b'RIFF' or data[8:12] != b'WEBP':
-                  raise SystemExit(f'Invalid pillar WebP: {asset}')
+          for css_name in (
+              'pillar-image-beauty.css',
+              'pillar-image-affective.css',
+              'pillar-image-research.css',
+          ):
+              text = (root / css_name).read_text(encoding='utf-8')
+              match = re.search(r'data:image/avif;base64,([^"\)]+)', text)
+              if not match:
+                  raise SystemExit(f'{css_name}: embedded AVIF payload missing')
+              data = base64.b64decode(match.group(1), validate=True)
+              if len(data) < 8000 or data[4:8] != b'ftyp' or b'avif' not in data[:24]:
+                  raise SystemExit(f'{css_name}: invalid or undersized AVIF payload')
+
+          if (root / 'asset-sources').exists() or (root / 'asset-sources-v3').exists():
+              raise SystemExit('Working image-source directories leaked into Pages artifact')
 
           portrait = root / 'assets/alessa-yang-portrait-20260806.jpg'
           data = portrait.read_bytes()
           expected_hash = '8aa919332c5a52f568ad33d9140010a6471c9f5745de0d4fe0ac40dba0d735fc'
-          actual_hash = hashlib.sha256(data).hexdigest()
-          if actual_hash != expected_hash:
-              raise SystemExit(f'Alessa portrait checksum mismatch: {actual_hash}')
-          if len(data) != 7305 or data[:3] != b'\xff\xd8\xff' or data[-2:] != b'\xff\xd9':
-              raise SystemExit('Alessa portrait is not the verified JPEG payload.')
+          if hashlib.sha256(data).hexdigest() != expected_hash:
+              raise SystemExit('Alessa portrait checksum mismatch')
 
-          leadership_css = (root / 'leadership.css').read_text(encoding='utf-8')
-          for selector in ('.team-photo-alessa', '.team-photo-zen', '.team-photo-milos'):
-              if selector not in leadership_css:
-                  raise SystemExit(f'Missing leadership portrait rule: {selector}')
-
-          for name in ('index.html', 'about.html'):
-              html = (root / name).read_text(encoding='utf-8')
-              if 'assets/alessa-yang-portrait-20260806.jpg' not in html:
-                  raise SystemExit(f'{name}: verified Alessa portrait not injected.')
-              if '>AY<' in html or 'Portrait placeholder' in html:
-                  raise SystemExit(f'{name}: obsolete Alessa placeholder remains.')
-              if 'team-photo-zen' not in html or 'team-photo-milos' not in html:
-                  raise SystemExit(f'{name}: leadership portrait system incomplete.')
-
-          print('Validated eleven pages, three strategic pillar assets and leadership portraits.')
+          print('Validated eleven responsive pages and three embedded AVIF pillar visuals.')
           PY
 
   deploy:
@@ -205,7 +206,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify live site, strategic pillars and exact portrait bytes
+      - name: Verify live site
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         shell: bash
@@ -213,87 +214,73 @@ jobs:
           set -euo pipefail
           base="${PAGE_URL%/}/"
           pages=(
-            index.html about.html overview.html
+            index.html overview.html platform.html development.html
+            evidence.html market.html about.html contact.html
             commercial-beachhead.html differentiation.html expansion-engine.html
           )
+          styles=(
+            layout-polish.css pillar-image-beauty.css
+            pillar-image-affective.css pillar-image-research.css
+          )
 
-          for attempt in {1..12}; do
+          for attempt in {1..15}; do
             ready=true
+            rm -rf /tmp/winverse-live
+            mkdir -p /tmp/winverse-live
+
             for page in "${pages[@]}"; do
               if ! curl --fail --silent --show-error --location --retry 2 \
-                --output "/tmp/${page}" "${base}${page}"; then
+                --output "/tmp/winverse-live/${page}" "${base}${page}"; then
                 ready=false
                 break
               fi
             done
 
-            if [ "$ready" = true ] \
-              && curl --fail --silent --show-error --location --retry 2 \
-                --output /tmp/alessa-yang.jpg \
-                "${base}assets/alessa-yang-portrait-20260806.jpg" \
-              && curl --fail --silent --show-error --location --retry 2 \
-                --output /tmp/leadership.css "${base}leadership.css" \
-              && curl --fail --silent --show-error --location --retry 2 \
-                --output /tmp/pillar-visuals.css "${base}pillar-visuals.css" \
-              && curl --fail --silent --show-error --location --retry 2 \
-                --output /tmp/pillar-premium-beauty.webp "${base}assets/pillar-premium-beauty.webp" \
-              && curl --fail --silent --show-error --location --retry 2 \
-                --output /tmp/pillar-affective-experience.webp "${base}assets/pillar-affective-experience.webp" \
-              && curl --fail --silent --show-error --location --retry 2 \
-                --output /tmp/pillar-claim-research.webp "${base}assets/pillar-claim-research.webp"; then
-              if python3 - <<'PY'
-          import hashlib
-          from pathlib import Path
-
-          data = Path('/tmp/alessa-yang.jpg').read_bytes()
-          expected_hash = '8aa919332c5a52f568ad33d9140010a6471c9f5745de0d4fe0ac40dba0d735fc'
-          assert hashlib.sha256(data).hexdigest() == expected_hash
-          assert len(data) == 7305
-          assert data[:3] == b'\xff\xd8\xff'
-          assert data[-2:] == b'\xff\xd9'
-
-          css = Path('/tmp/leadership.css').read_text(encoding='utf-8')
-          assert '.team-photo-alessa' in css
-          assert 'object-fit: cover' in css
-
-          pillar_css = Path('/tmp/pillar-visuals.css').read_text(encoding='utf-8')
-          for name in (
-              'pillar-premium-beauty.webp',
-              'pillar-affective-experience.webp',
-              'pillar-claim-research.webp',
-          ):
-              assert name in pillar_css
-              image = Path('/tmp') / name
-              data = image.read_bytes()
-              assert len(data) > 4000
-              assert data[:4] == b'RIFF'
-              assert data[8:12] == b'WEBP'
-
-          overview = Path('/tmp/overview.html').read_text(encoding='utf-8')
-          for name in (
-              'commercial-beachhead.html',
-              'differentiation.html',
-              'expansion-engine.html',
-          ):
-              assert f'href="{name}"' in overview
-
-          for page in ('/tmp/index.html', '/tmp/about.html'):
-              html = Path(page).read_text(encoding='utf-8')
-              assert 'assets/alessa-yang-portrait-20260806.jpg' in html
-              assert '>AY<' not in html
-              assert 'Portrait placeholder' not in html
-          PY
-              then
-                echo "Verified live WinVerse strategic pillar pages at $base"
-                exit 0
-              fi
+            if [ "$ready" = true ]; then
+              for style in "${styles[@]}"; do
+                if ! curl --fail --silent --show-error --location --retry 2 \
+                  --output "/tmp/winverse-live/${style}" "${base}${style}"; then
+                  ready=false
+                  break
+                fi
+              done
             fi
 
-            echo "Live site not ready; attempt ${attempt}/12"
+            if [ "$ready" = true ] && python3 - <<'PY'
+          import base64
+          import re
+          from pathlib import Path
+
+          root = Path('/tmp/winverse-live')
+          pillars = {
+              'commercial-beachhead.html': 'pillar-image-beauty.css',
+              'differentiation.html': 'pillar-image-affective.css',
+              'expansion-engine.html': 'pillar-image-research.css',
+          }
+          for page_name, css_name in pillars.items():
+              html = (root / page_name).read_text(encoding='utf-8')
+              assert 'layout-polish.css' in html
+              assert css_name in html
+
+          for css_name in pillars.values():
+              text = (root / css_name).read_text(encoding='utf-8')
+              match = re.search(r'data:image/avif;base64,([^"\)]+)', text)
+              assert match
+              data = base64.b64decode(match.group(1), validate=True)
+              assert len(data) >= 8000
+              assert data[4:8] == b'ftyp'
+              assert b'avif' in data[:24]
+          PY
+            then
+              echo "Verified live WinVerse site at $base"
+              exit 0
+            fi
+
+            echo "Live site not ready; attempt ${attempt}/15"
             sleep 10
           done
 
-          echo "Live strategic pillar verification failed."
+          echo "Live WinVerse verification failed."
           exit 1
 
       - name: Publish deployment record
