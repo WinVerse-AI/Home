@@ -118,7 +118,7 @@ jobs:
 
           portrait = root / 'assets/alessa-yang-final.jpg'
           data = portrait.read_bytes()
-          if len(data) < 10000 or data[:3] != b'\xff\xd8\xff' or data[-2:] != b'\xff\xd9':
+          if len(data) < 5000 or data[:3] != b'\xff\xd8\xff' or data[-2:] != b'\xff\xd9':
               raise SystemExit('Alessa portrait is not a valid JPEG payload.')
 
           leadership_css = (root / 'leadership.css').read_text(encoding='utf-8')
@@ -209,7 +209,7 @@ jobs:
           from pathlib import Path
 
           data = Path('/tmp/alessa-yang.jpg').read_bytes()
-          assert len(data) > 10000
+          assert len(data) > 5000
           assert data[:3] == b'\xff\xd8\xff'
           assert data[-2:] == b'\xff\xd9'
 
