@@ -48,11 +48,26 @@ def inject_market_navigation(path: Path) -> None:
     path.write_text(html, encoding="utf-8")
 
 
+def inject_typography_stylesheet(path: Path) -> None:
+    html = path.read_text(encoding="utf-8")
+    if 'href="typography.css"' not in html:
+        marker = "</head>"
+        if marker not in html:
+            raise RuntimeError(f"Could not locate head closing tag in {path.name}")
+        html = html.replace(
+            marker,
+            '  <link rel="stylesheet" href="typography.css">\n</head>',
+            1,
+        )
+    path.write_text(html, encoding="utf-8")
+
+
 def main() -> None:
     copy_site()
     pages = sorted(DIST.glob("*.html"))
     for page in pages:
         inject_market_navigation(page)
+        inject_typography_stylesheet(page)
     print(f"Built {len(pages)} pages in {DIST}")
 
 
