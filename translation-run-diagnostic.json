@@ -1,0 +1,61 @@
+[
+  {
+    "id": 31112372492,
+    "status": "in_progress",
+    "conclusion": null,
+    "head_sha": "d8562d3108ce23890323b247e356dd790a37c3f3",
+    "html_url": "https://github.com/WinVerse-AI/Home/actions/runs/31112372492",
+    "created_at": "2026-08-06T14:44:53Z",
+    "updated_at": "2026-08-06T14:44:56Z",
+    "jobs": [
+      {
+        "id": 92653175492,
+        "name": "translate",
+        "status": "in_progress",
+        "conclusion": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v6",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-python@v6",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install offline translation engine",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "name": "Generate dictionaries",
+            "status": "pending",
+            "conclusion": null
+          },
+          {
+            "name": "Commit generated dictionaries",
+            "status": "pending",
+            "conclusion": null
+          },
+          {
+            "name": "Post Run actions/setup-python@v6",
+            "status": "pending",
+            "conclusion": null
+          },
+          {
+            "name": "Post Run actions/checkout@v6",
+            "status": "pending",
+            "conclusion": null
+          }
+        ]
+      }
+    ]
+  }
+]
