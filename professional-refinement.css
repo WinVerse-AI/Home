@@ -1,0 +1,563 @@
+/*
+  WinVerse professional layout refinement.
+  Purpose: reduce dead space, sharpen hierarchy, and use imagery as evidence/product anchors
+  rather than decorative filler. Loaded after the existing layout-polish layer.
+*/
+
+:root {
+  --shell: min(1180px, calc(100% - clamp(32px, 5vw, 72px)));
+  --header: 74px;
+  --section-space: clamp(54px, 5.4vw, 76px);
+  --section-space-compact: clamp(44px, 4.6vw, 64px);
+  --layout-gap: clamp(28px, 4vw, 52px);
+  --card-gap: clamp(12px, 1.5vw, 18px);
+  --radius-lg: 22px;
+  --radius-md: 15px;
+  --shadow-soft: 0 14px 34px rgba(24,45,35,.07);
+  --shadow-lift: 0 20px 48px rgba(24,45,35,.105);
+  --type-display: clamp(2.55rem, 4.35vw, 4.35rem);
+  --type-page-title: clamp(2.35rem, 3.75vw, 3.75rem);
+  --type-section-title: clamp(1.72rem, 2.45vw, 2.5rem);
+  --type-cta-title: clamp(1.8rem, 2.75vw, 2.85rem);
+}
+
+body {
+  background:
+    radial-gradient(circle at 7% -4%, rgba(11,122,105,.04), transparent 27rem),
+    var(--paper);
+}
+
+.site-header {
+  background: rgba(245,247,244,.97);
+  box-shadow: 0 5px 20px rgba(18,32,25,.035);
+}
+
+.header-inner { min-height: var(--header); }
+.brand-logo { width: 156px; }
+.site-nav { gap: clamp(13px, 1.45vw, 20px); }
+.site-nav a { padding: 26px 0 23px; }
+.site-nav a:not(.nav-cta):after { bottom: 18px; }
+.site-nav .nav-cta { padding: 10px 15px; }
+
+.hero,
+.page-hero {
+  padding-block: clamp(42px, 4.8vw, 62px);
+}
+
+.hero-grid {
+  grid-template-columns: minmax(0, 1.06fr) minmax(390px, .94fr);
+  gap: clamp(34px, 4.2vw, 58px);
+}
+
+.hero-copy .eyebrow,
+.page-hero .eyebrow { margin-bottom: 14px; }
+
+.hero-lede,
+.page-lede {
+  margin-top: 18px;
+  max-width: 690px;
+  font-size: clamp(1.02rem, 1.2vw, 1.18rem);
+  line-height: 1.55;
+}
+
+.hero-actions { margin-top: 24px; }
+.claim-boundary { margin-top: 22px; }
+
+.hero-visual,
+.product-image {
+  padding: 10px;
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.hero-visual > img,
+.product-image img {
+  border-radius: 13px;
+}
+
+.hero-fact-grid { margin-top: 10px; border-radius: 13px; }
+.hero-fact-grid > div { padding: 14px; }
+.hero-fact-grid span { margin-bottom: 9px; }
+
+.section { padding-block: var(--section-space); }
+.section + .section:not(.section-dark):not(.section-tint):not(.section-rule) { padding-top: var(--section-space-compact); }
+.section-heading.narrow { margin-bottom: clamp(26px, 3vw, 36px); }
+
+.split-heading {
+  grid-template-columns: minmax(0, 1.04fr) minmax(300px, .84fr);
+  gap: var(--layout-gap);
+}
+
+.split-heading h2 { max-width: 720px; }
+.prose { max-width: 650px; }
+.prose p,
+.content-copy p,
+.section-copy p,
+.page-lede,
+.hero-lede { line-height: 1.6; }
+
+.compare-grid,
+.territory-grid,
+.evidence-cards,
+.persona-grid,
+.team-grid,
+.convergence-grid,
+.moat-grid,
+.research-grid,
+.risk-grid,
+.win-grid,
+.business-grid,
+.collaboration-grid,
+.phase-grid,
+.decision-grid,
+.principle-list,
+.source-grid {
+  margin-top: clamp(26px, 3.2vw, 36px);
+  gap: var(--card-gap);
+}
+
+.compare-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.compare-card,
+.territory-grid article,
+.persona-grid article,
+.convergence-grid article,
+.moat-grid article,
+.research-grid article,
+.risk-grid article,
+.win-grid article,
+.business-grid article,
+.collaboration-grid article,
+.phase-grid article,
+.decision-grid article,
+.principle-list > div,
+.evidence-cards article {
+  padding: clamp(20px, 2.1vw, 26px);
+  border-radius: var(--radius-md);
+}
+
+.compare-card,
+.territory-grid article,
+.persona-grid article,
+.convergence-grid article,
+.moat-grid article,
+.research-grid article,
+.risk-grid article,
+.win-grid article,
+.business-grid article,
+.collaboration-grid article,
+.phase-grid article,
+.decision-grid article,
+.principle-list > div,
+.team-card,
+.journey-grid article,
+.timeline article,
+.analysis-card,
+.question-card,
+.market-context-card,
+.price-card {
+  box-shadow: none;
+}
+
+.compare-card:hover,
+.territory-grid article:hover,
+.persona-grid article:hover,
+.convergence-grid article:hover,
+.moat-grid article:hover,
+.research-grid article:hover,
+.risk-grid article:hover,
+.win-grid article:hover,
+.business-grid article:hover,
+.collaboration-grid article:hover,
+.phase-grid article:hover,
+.decision-grid article:hover,
+.principle-list > div:hover,
+.team-card:hover,
+.analysis-card:hover,
+.question-card:hover,
+.market-context-card:hover,
+.price-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(24,45,35,.07);
+}
+
+.clean-list,
+.check-list { margin-top: 18px; }
+.clean-list li,
+.check-list li { padding-block: 8px; }
+.clean-list li:before,
+.check-list li:before { top: 17px; }
+
+.metric {
+  margin-bottom: 18px;
+  font-size: clamp(2.35rem, 3.5vw, 3rem);
+}
+
+.evidence-judgment {
+  grid-template-columns: 150px 1fr auto;
+  gap: 22px;
+  margin-top: 14px;
+  padding: 22px 0 0;
+}
+
+.product-feature,
+.product-feature.reverse {
+  grid-template-columns: minmax(360px, .92fr) minmax(0, 1fr);
+  gap: clamp(34px, 4.4vw, 58px);
+}
+
+.product-feature.reverse { grid-template-columns: minmax(0, 1fr) minmax(360px, .92fr); }
+.numbered-stack { margin-block: 22px; }
+.numbered-stack > div { padding-block: 12px; }
+
+.claim-ladder-preview {
+  grid-template-columns: minmax(270px, .75fr) minmax(0, 1.25fr);
+  gap: clamp(34px, 4vw, 52px);
+}
+
+.ladder { gap: 6px; }
+.ladder > div {
+  grid-template-columns: 34px 142px 1fr;
+  gap: 14px;
+  padding: 13px 16px;
+  border-radius: 11px;
+}
+
+.team-intro {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, .8fr);
+  gap: var(--layout-gap);
+  margin-bottom: 30px;
+}
+
+.team-content { padding: 20px 22px 22px; }
+.team-grid .team-media { height: clamp(230px, 21vw, 285px); }
+
+.page-hero {
+  border-bottom: 1px solid rgba(216,223,218,.8);
+  background: linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.14));
+}
+
+.page-hero-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(315px, 350px);
+  gap: clamp(36px, 4vw, 58px);
+  align-items: center;
+}
+
+.page-meta {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  box-shadow: none;
+}
+
+.page-meta > div {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255,255,255,.86);
+}
+
+.page-meta span { font-size: .64rem; }
+.page-meta strong { margin-top: 2px; font-size: .86rem; }
+
+.page-meta-visual {
+  display: block;
+  width: 100%;
+  height: 148px;
+  margin-bottom: 2px;
+  border: 1px solid rgba(20,42,33,.09);
+  border-radius: 15px;
+  background-color: #e9eeea;
+  background-position: center;
+  background-size: cover;
+  box-shadow: var(--shadow-soft);
+}
+
+.page-visual-platform {
+  background-image: linear-gradient(rgba(245,247,244,.03), rgba(245,247,244,.03)), url("assets/serotonix-exploded.webp");
+  background-position: center 48%;
+}
+
+.page-visual-development {
+  background-image: linear-gradient(rgba(245,247,244,.04), rgba(245,247,244,.04)), url("assets/serotonix-detail.webp");
+  background-position: center 46%;
+}
+
+.page-visual-about {
+  background-image: linear-gradient(rgba(245,247,244,.02), rgba(245,247,244,.02)), url("assets/serotonix-colourways.webp");
+  background-position: center 48%;
+}
+
+.page-evidence .page-meta-visual,
+.page-market .page-meta-visual {
+  background-position: center 47%;
+}
+
+/* Overview already has three meaningful strategic images; make those cards feel like one concise decision rail. */
+.page-overview .page-hero-grid {
+  grid-template-columns: minmax(0, .88fr) minmax(500px, 1.12fr);
+  align-items: stretch;
+}
+
+.page-overview .pillar-nav {
+  gap: 8px;
+  align-content: center;
+}
+
+.page-overview .pillar-card {
+  min-height: 102px;
+  border-radius: 14px;
+}
+
+.page-overview .pillar-thumb { width: 132px; }
+.page-overview .pillar-copy { padding: 14px 16px; }
+
+.overview-thesis {
+  max-width: none !important;
+  columns: 2 360px;
+  column-gap: clamp(34px, 4vw, 58px);
+}
+
+.overview-thesis p {
+  break-inside: avoid;
+  margin-bottom: 18px;
+}
+
+/* Dense information components */
+.benefit-table,
+.indicator-list,
+.control-table,
+.claim-table,
+.competitive-table,
+.forecast-table,
+.evidence-ladder,
+.journey-grid,
+.timeline,
+.confidence-list,
+.submission-list {
+  margin-top: clamp(26px, 3.2vw, 36px);
+}
+
+.benefit-row {
+  grid-template-columns: 190px minmax(0, 1fr) minmax(230px, .8fr);
+  gap: clamp(20px, 2.8vw, 34px);
+  padding-block: 22px;
+}
+
+.control-table > div,
+.claim-table > div,
+.competitive-table > div,
+.forecast-table > div {
+  padding: 14px 18px;
+  gap: 16px;
+}
+
+.evidence-ladder { gap: 7px; }
+.evidence-ladder article {
+  grid-template-columns: 102px 190px 1fr;
+  gap: 20px;
+  padding: 18px 20px;
+  border-radius: 12px;
+}
+
+.journey-grid,
+.timeline { gap: 9px; }
+.journey-grid article,
+.timeline article { padding: 19px; border-radius: 14px; }
+
+.study-stack { gap: 10px; }
+.study-stack article {
+  grid-template-columns: 60px 1fr;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 14px;
+}
+.study-number { width: 46px; height: 46px; }
+
+.source-grid a { padding: 18px; border-radius: 13px; }
+.confidence-list { gap: 4px; }
+.confidence-list > div {
+  grid-template-columns: 150px 1fr;
+  gap: 20px;
+  padding-block: 14px;
+}
+
+.forecast-layout,
+.funds-layout { margin-top: 32px; gap: 28px; }
+.category-statement,
+.judgment-panel,
+.contact-panel,
+.milestone-card {
+  padding: clamp(26px, 3vw, 36px);
+  border-radius: 17px;
+  box-shadow: var(--shadow-soft);
+}
+
+.judgment-panel { gap: clamp(34px, 4vw, 54px); }
+
+.flywheel {
+  margin-top: 24px;
+  padding: 17px 20px;
+  border-radius: 12px;
+}
+
+.submission-list > div { padding-block: 14px; }
+
+.cta-band { padding-block: clamp(42px, 4.5vw, 58px); }
+.cta-band .shell { gap: 28px; }
+.site-footer { padding-block: clamp(40px, 4.5vw, 58px); }
+.footer-grid { gap: clamp(24px, 4vw, 48px); }
+
+.pillar-detail-hero { padding-block: clamp(42px, 5vw, 68px); }
+.pillar-detail-grid { gap: clamp(34px, 4.5vw, 64px); }
+.pillar-hero-image { border-radius: 20px; }
+.pillar-facts { margin-top: 24px; }
+.pillar-list { margin-top: 32px; gap: 14px; }
+.pillar-list article { padding: 22px; border-radius: 15px; }
+.pillar-boundary { padding: clamp(28px, 4vw, 44px); border-radius: 19px; }
+.pillar-next-grid a { min-height: 112px; padding: 22px; }
+
+@media (max-width: 1040px) {
+  .hero-grid,
+  .page-hero-grid,
+  .page-overview .page-hero-grid,
+  .split-heading,
+  .product-feature,
+  .product-feature.reverse,
+  .judgment-panel,
+  .forecast-layout,
+  .funds-layout,
+  .team-intro,
+  .claim-ladder-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .page-meta {
+    grid-template-columns: minmax(220px, .9fr) repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .page-meta-visual {
+    height: auto;
+    min-height: 118px;
+    margin: 0;
+  }
+
+  .page-overview .pillar-nav { grid-template-columns: repeat(3, 1fr); }
+  .page-overview .pillar-card { display: block; }
+  .page-overview .pillar-thumb { width: 100%; height: 108px; }
+
+  .benefit-row {
+    grid-template-columns: 165px minmax(0, 1fr);
+  }
+  .benefit-row > strong { grid-column: 2; }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --shell: min(100% - 28px, 1180px);
+    --header: 68px;
+    --section-space: 48px;
+    --section-space-compact: 42px;
+    --type-display: clamp(2.2rem, 9.5vw, 3.05rem);
+    --type-page-title: clamp(2.08rem, 8.7vw, 2.85rem);
+    --type-section-title: clamp(1.58rem, 6.6vw, 2.08rem);
+  }
+
+  .brand-logo { width: 142px; }
+  .hero,
+  .page-hero,
+  .pillar-detail-hero { padding-block: 38px 46px; }
+  .hero-grid { gap: 30px; }
+  .hero-lede,
+  .page-lede { font-size: 1rem; }
+  .split-heading { gap: 22px; }
+  .section-heading.narrow { margin-bottom: 24px; }
+
+  .page-meta {
+    grid-template-columns: 1fr 1fr;
+  }
+  .page-meta-visual {
+    grid-column: 1 / -1;
+    height: 140px;
+  }
+  .page-meta > div:last-child:nth-child(even) { grid-column: 1 / -1; }
+
+  .page-overview .pillar-nav { grid-template-columns: 1fr; }
+  .page-overview .pillar-card { display: grid; grid-template-columns: 118px 1fr; }
+  .page-overview .pillar-thumb { width: 118px; height: 100%; min-height: 98px; }
+
+  .overview-thesis { columns: 1; }
+
+  .compare-grid { grid-template-columns: 1fr; }
+  .evidence-judgment { grid-template-columns: 1fr; gap: 10px; }
+  .evidence-judgment .text-link { margin-top: 4px; }
+
+  .ladder > div { grid-template-columns: 32px 1fr; }
+  .ladder > div p { grid-column: 2; }
+
+  .benefit-row,
+  .evidence-ladder article,
+  .confidence-list > div {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .benefit-row > strong { grid-column: auto; }
+
+  .flywheel {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .flywheel i { transform: rotate(90deg); width: max-content; }
+
+  .team-grid .team-media { height: clamp(245px, 72vw, 340px); }
+  .cta-band .shell { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  .page-meta { grid-template-columns: 1fr; }
+  .page-meta > div:last-child:nth-child(even),
+  .page-meta-visual { grid-column: auto; }
+  .page-meta-visual { height: 132px; }
+  .page-overview .pillar-card { grid-template-columns: 104px 1fr; }
+  .page-overview .pillar-thumb { width: 104px; }
+  .compare-card,
+  .territory-grid article,
+  .persona-grid article,
+  .convergence-grid article,
+  .moat-grid article,
+  .research-grid article,
+  .risk-grid article,
+  .win-grid article,
+  .business-grid article,
+  .collaboration-grid article,
+  .phase-grid article,
+  .decision-grid article,
+  .principle-list > div,
+  .evidence-cards article { padding: 19px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compare-card,
+  .territory-grid article,
+  .persona-grid article,
+  .convergence-grid article,
+  .moat-grid article,
+  .research-grid article,
+  .risk-grid article,
+  .win-grid article,
+  .business-grid article,
+  .collaboration-grid article,
+  .phase-grid article,
+  .decision-grid article,
+  .principle-list > div,
+  .team-card,
+  .analysis-card,
+  .question-card,
+  .market-context-card,
+  .price-card { transition: none; }
+}

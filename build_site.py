@@ -22,11 +22,19 @@ GLOBAL_STYLESHEETS = (
     "pillar-image-beauty.css",
     "pillar-image-affective.css",
     "pillar-image-research.css",
+    "professional-refinement.css",
     "language.css",
 )
 GLOBAL_SCRIPTS = (
     "language.js",
 )
+PAGE_VISUALS = {
+    "platform.html": "page-visual-platform",
+    "development.html": "page-visual-development",
+    "evidence.html": "pillar-image-research",
+    "market.html": "pillar-image-beauty",
+    "about.html": "page-visual-about",
+}
 
 
 def copy_site() -> None:
@@ -62,6 +70,35 @@ def inject_market_navigation(path: Path) -> None:
         html, count = footer_pattern.subn(rf'\1{footer_link}', html, count=1)
         if count != 1:
             raise RuntimeError(f"Could not inject Market footer link into {path.name}")
+    path.write_text(html, encoding="utf-8")
+
+
+def inject_page_context(path: Path) -> None:
+    """Add non-copy layout hooks without changing the translation source strings."""
+    html = path.read_text(encoding="utf-8")
+    page_class = f"page-{path.stem}"
+
+    body_pattern = re.compile(r'<body class="([^"]*)">')
+    match = body_pattern.search(html)
+    if match and page_class not in match.group(1).split():
+        classes = f"{match.group(1)} {page_class}".strip()
+        html = body_pattern.sub(f'<body class="{classes}">', html, count=1)
+
+    visual_class = PAGE_VISUALS.get(path.name)
+    if visual_class and 'class="page-meta"' in html and "page-meta-visual" not in html:
+        html = html.replace(
+            '<aside class="page-meta">',
+            f'<aside class="page-meta"><span class="page-meta-visual {visual_class}" aria-hidden="true"></span>',
+            1,
+        )
+
+    if path.name == "overview.html":
+        html = html.replace(
+            '<div class="prose" style="max-width: 900px;">',
+            '<div class="prose overview-thesis">',
+            1,
+        )
+
     path.write_text(html, encoding="utf-8")
 
 
@@ -128,14 +165,15 @@ def main() -> None:
     pages = sorted(DIST.glob("*.html"))
     for page in pages:
         inject_market_navigation(page)
+        inject_page_context(page)
         for stylesheet in GLOBAL_STYLESHEETS:
             inject_stylesheet(page, stylesheet)
         for script in GLOBAL_SCRIPTS:
             inject_script(page, script)
         inject_alessa_portrait(page)
     print(
-        f"Built {len(pages)} pages in {DIST} with polished layouts, "
-        "high-resolution pillar imagery and six local language options"
+        f"Built {len(pages)} pages in {DIST} with denser professional layouts, "
+        "contextual imagery and six local language options"
     )
 
 
