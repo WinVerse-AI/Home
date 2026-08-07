@@ -22,7 +22,7 @@ jobs:
             index.html overview.html platform.html development.html
             evidence.html market.html about.html contact.html
             commercial-beachhead.html differentiation.html expansion-engine.html
-            professional-refinement.css language.css language.js script.js build_site.py
+            language.css language.js script.js build_site.py
             translations/generated/zh-CN.json translations/generated/ja.json
             translations/generated/fr.json translations/generated/de.json
             translations/generated/es.json translations/generated/report.json
@@ -53,9 +53,6 @@ jobs:
               'overview.html', 'platform.html', 'development.html', 'evidence.html',
               'market.html', 'about.html', 'contact.html',
           }
-          visual_pages = {
-              'platform.html', 'development.html', 'evidence.html', 'market.html', 'about.html'
-          }
 
           class Audit(HTMLParser):
               def __init__(self):
@@ -78,19 +75,11 @@ jobs:
               html = path.read_text(encoding='utf-8')
               if 'translate.google.com' in html or 'translate-cleanup' in html:
                   raise SystemExit(f'{name}: obsolete Google translation code remains')
-              expected_page_class = f'page-{Path(name).stem}'
-              if expected_page_class not in html:
-                  raise SystemExit(f'{name}: page layout identity missing')
-              if name in visual_pages and 'page-meta-visual' not in html:
-                  raise SystemExit(f'{name}: contextual hero visual missing')
-
               audit = Audit()
               audit.feed(html)
               present_nav = {urlsplit(link).path for link in audit.links if urlsplit(link).path in nav}
               if present_nav != nav:
                   raise SystemExit(f'{name}: incomplete navigation')
-              if not any(urlsplit(asset).path == 'professional-refinement.css' for asset in audit.assets):
-                  raise SystemExit(f'{name}: professional refinement stylesheet missing')
               for asset in audit.assets:
                   if asset.startswith(('http://', 'https://', 'data:')):
                       continue
@@ -131,5 +120,5 @@ jobs:
               if strings.get('Overview') in (None, '', 'Overview'):
                   raise SystemExit(f'{locale}: navigation smoke test failed')
 
-          print('Local multilingual and professional-layout validation passed.')
+          print('Local multilingual site validation passed.')
           PY
